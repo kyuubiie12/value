@@ -1,0 +1,312 @@
+@import "tailwindcss";
+
+/*
+  ValueBet AI theme.
+  Colours are runtime custom properties so the profile can switch dark/light and
+  swap the accent. Dark + emerald is the default (also the SSR fallback).
+  `bg-surface`, `text-muted`, `border-line`, `text-positive`, `bg-primary/12` …
+  all resolve through `--color-*`.
+*/
+
+@theme {
+  /* Surfaces — dark defaults */
+  --color-bg: #090b11;
+  --color-bg-elevated: #0e131d;
+  --color-surface: #151b28;
+  --color-surface-2: #1c2331;
+  --color-surface-3: #252d3d;
+  --color-line: #262d3b;
+  --color-line-strong: #3a4457;
+
+  /* Text — one cool-gray family. `subtle` tuned to clear WCAG AA (4.5:1) on
+     the card surface, not just on the page background. */
+  --color-fg: #eef1f6;
+  --color-muted: #a2acbc;
+  --color-subtle: #7e8798;
+
+  /* Accent — emerald default (overridden by [data-accent]) */
+  --color-primary: #1fce90;
+  --color-primary-strong: #4ee7b0;
+  --color-primary-contrast: #04130d;
+  --color-ring: #1fce90;
+
+  /* Semantic status */
+  --color-positive: #2ed195;
+  --color-positive-soft: #0f2a20;
+  --color-negative: #f66b70;
+  --color-negative-soft: #2c1719;
+  --color-warning: #ecb04a;
+  --color-warning-soft: #2c2210;
+  --color-info: #74acff;
+}
+
+@theme inline {
+  --radius-card: var(--radius);
+  --radius-card-lg: var(--radius-lg);
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SF Mono", monospace;
+}
+
+:root {
+  color-scheme: dark;
+
+  --radius-sm: 0.375rem;
+  --radius: 0.625rem;
+  --radius-lg: 0.875rem;
+
+  /* Shadows carry the background hue rather than pure black. */
+  --shadow-sm: 0 1px 2px rgba(4, 8, 14, 0.6);
+  --shadow-md: 0 6px 20px -8px rgba(4, 8, 14, 0.7);
+  --shadow-pop: 0 24px 60px -20px rgba(3, 6, 12, 0.85);
+
+  /* Strength of the ambient accent glow behind the page. */
+  --ambient-mix: 6%;
+}
+
+/* ---- Light theme -------------------------------------------------------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --color-bg: #f5f6f8;
+  --color-bg-elevated: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f2f5;
+  --color-surface-3: #e6e9ee;
+  --color-line: #e3e6ec;
+  --color-line-strong: #cfd4dd;
+
+  --color-fg: #161a21;
+  --color-muted: #545d6b;
+  --color-subtle: #6b7480;
+
+  --color-positive: #12a06f;
+  --color-positive-soft: #e2f5ee;
+  --color-negative: #e0474d;
+  --color-negative-soft: #fdeaea;
+  --color-warning: #c98a1e;
+  --color-warning-soft: #fbf0dc;
+  --color-info: #2f7fe0;
+
+  --shadow-sm: 0 1px 2px rgba(20, 28, 46, 0.08);
+  --shadow-md: 0 8px 24px -10px rgba(20, 28, 46, 0.18);
+  --shadow-pop: 0 24px 60px -22px rgba(20, 28, 46, 0.26);
+  --ambient-mix: 4%;
+}
+
+/* ---- Accent overrides -------------------------------------------------- */
+[data-accent="blue"] {
+  --color-primary: #4098f5;
+  --color-primary-strong: #74b4fb;
+  --color-primary-contrast: #04101d;
+  --color-ring: #4098f5;
+}
+[data-accent="violet"] {
+  --color-primary: #9a7bf0;
+  --color-primary-strong: #b7a1ff;
+  --color-primary-contrast: #0e0a1c;
+  --color-ring: #9a7bf0;
+}
+[data-accent="amber"] {
+  --color-primary: #eaa93c;
+  --color-primary-strong: #ffc667;
+  --color-primary-contrast: #1c1400;
+  --color-ring: #eaa93c;
+}
+
+[data-theme="light"][data-accent="emerald"],
+[data-theme="light"]:not([data-accent]) {
+  --color-primary: #0e9c6c;
+  --color-primary-strong: #0a8a5f;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #0e9c6c;
+}
+[data-theme="light"][data-accent="blue"] {
+  --color-primary: #2b7fe0;
+  --color-primary-strong: #1f6ac2;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #2b7fe0;
+}
+[data-theme="light"][data-accent="violet"] {
+  --color-primary: #7c5ce0;
+  --color-primary-strong: #6847c4;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #7c5ce0;
+}
+[data-theme="light"][data-accent="amber"] {
+  --color-primary: #c9871f;
+  --color-primary-strong: #a86f12;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #c9871f;
+}
+
+/*
+  Raw aliases so existing `var(--bg)` / `var(--primary)` usages keep working.
+  Declared on both :root and any themed element so they re-resolve in context.
+*/
+:root,
+[data-theme],
+[data-accent] {
+  --bg: var(--color-bg);
+  --bg-elevated: var(--color-bg-elevated);
+  --surface: var(--color-surface);
+  --surface-2: var(--color-surface-2);
+  --surface-3: var(--color-surface-3);
+  --line: var(--color-line);
+  --line-strong: var(--color-line-strong);
+  --fg: var(--color-fg);
+  --fg-muted: var(--color-muted);
+  --fg-subtle: var(--color-subtle);
+  --primary: var(--color-primary);
+  --primary-strong: var(--color-primary-strong);
+  --primary-contrast: var(--color-primary-contrast);
+  --positive: var(--color-positive);
+  --negative: var(--color-negative);
+  --warning: var(--color-warning);
+  --info: var(--color-info);
+  --ring: var(--color-ring);
+}
+
+/*
+  Display face — user-selectable on the profile (see `displayFont` in settings).
+  `--font-display` is set directly on each `[data-display-font]` element (not via
+  a nested var) so it resolves in that element's context and inherits down; it is
+  also kept out of `@theme` so it is not baked to a literal at build time.
+*/
+:root {
+  --display-fallback: var(--font-sans), ui-sans-serif, sans-serif;
+  --font-display: var(--font-grotesk), var(--display-fallback);
+}
+[data-display-font="oswald"] {
+  --font-display: var(--font-oswald), var(--display-fallback);
+}
+[data-display-font="teko"] {
+  --font-display: var(--font-teko), var(--display-fallback);
+  --display-tracking: 0;
+}
+[data-display-font="rajdhani"] {
+  --font-display: var(--font-rajdhani), var(--display-fallback);
+  --display-tracking: 0.005em;
+}
+[data-display-font="anton"] {
+  --font-display: var(--font-anton), var(--display-fallback);
+  --display-tracking: 0.004em;
+}
+
+* {
+  border-color: var(--line);
+}
+
+/*
+  Bare bookmaker logos are light/white wordmarks (designed for dark). On the
+  light theme they'd vanish, so give them a dark chip to sit on.
+*/
+[data-theme="light"] [data-bookmaker-bare] {
+  background: #10151d;
+  border-radius: 6px;
+  padding-inline: 0.4rem;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+  Ambient background lives entirely in `body`'s background layers — one faint
+  accent light source, viewport-fixed, over the base colour. No pseudo-elements,
+  so nothing interferes with fixed / portaled UI.
+*/
+body {
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  background-image: radial-gradient(
+    820px 460px at 3% -12%,
+    color-mix(in oklab, var(--color-primary) var(--ambient-mix), transparent),
+    transparent 72%
+  );
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv05", "cv09", "ss01";
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Display headings: tight, confident, balanced. */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: var(--display-tracking, -0.02em);
+  text-wrap: balance;
+}
+
+/* Team / fixture names — display face, slightly tighter. */
+.fixture-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: var(--display-tracking, -0.015em);
+}
+
+/* Numeric / tabular data — lines up in columns. */
+.tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-primary) 28%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-subtle);
+  background-clip: content-box;
+}
+
+/* Feed cards ease in on load; per-card delay is set inline by index. */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.card-enter {
+  animation: card-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .card-enter {
+    animation: none;
+  }
+}
