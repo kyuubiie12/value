@@ -1,106 +1,99 @@
 # ValueBet AI
 
 AI-drevet værktøj til at finde **value-odds på fodbold** på tværs af bookmakere +
-personlig **portfolio-tracker**.
+personlig **portfolio-tracker**, med rigtige brugerkonti.
 
 > ValueBet AI er et **analyse- og trackingværktøj**. Appen formidler ikke spil og
 > placerer ingen væddemål.
 
-Dette er **fase 1**: arkitektur, komponenter, layout, navigation og mock-data.
-API-integrationer og AI-modeller kobles på senere — datalaget er fuldstændigt
-modulært, så mock-services kan udskiftes 1:1 med rigtige backends.
+**Live:** https://valuebet-ai-chi.vercel.app
 
 ## Stack
 
 | | |
 |---|---|
-| Framework | Next.js 16 (App Router) + TypeScript |
-| Styling | Tailwind CSS v4 — semantiske tokens i `globals.css` via `@theme` |
-| Typografi | Geist + Geist Mono (mono til alle tal) |
+| Framework | Next.js 16 (App Router) + TypeScript, React 19 |
+| Auth | E-mail/adgangskode, egne server actions (`src/lib/auth/`) — ingen tredjeparts auth-lib |
+| Database | SQLite via libSQL/Drizzle — lokal fil i dev, hostet Turso i produktion |
+| Styling | Tailwind CSS v4 — semantiske tokens i `globals.css` via `@theme` (dark/light + 4 accentfarver + 5 display-fonte, alle brugervalgte) |
 | Ikoner | lucide-react |
 | Charts | Recharts |
 | Utils | clsx + tailwind-merge (`cn`) |
 
-**Designsprog:** mørkt analytics-tema. Én accent (smaragdgrøn), cool-tonede
-neutraler, dæmpet elevation (hårfine borders, ingen tunge skygger), hårlinje-delte
-datastriber, konsekvente `active:`/`hover:`-states (150 ms). Alle overflader og
-farver kommer fra tokens — brug aldrig rå `slate-*`/`zinc-*`.
+**Designsprog:** se `.impeccable.md` for den fulde designkontekst. Kort: rolig
+tæthed, tallet er helten, accent er sjælden (~10 % af det visuelle), semantiske
+tokens overalt — aldrig rå `slate-*`/hex-farver.
 
 ## Kom i gang
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000  → redirecter til /value-bets
+npm run dev      # http://localhost:3000 → redirecter til /login (eller /value-bets hvis logget ind)
 npm run build
 npm run lint
 ```
+
+Kopiér `.env.example` til `.env.local` og udfyld efter behov. Uden `DATABASE_URL`
+bruges en lokal SQLite-fil (`./data/valuebet.db`) — fint til udvikling. I
+produktion (serverless, intet skrivbart filsystem) er en hostet libSQL/Turso-URL
+**påkrævet** — se `DATABASE_URL` + `TURSO_AUTH_TOKEN` i `.env.example`.
+
+## Deploy
+
+Live på Vercel, koblet til dette repo — hvert push til `main` deployer automatisk.
+Manuelt deploy: `npx vercel --prod --yes`. Miljøvariabler sættes med
+`vercel env add <navn> production`.
 
 ## Projektstruktur
 
 ```
 src/
 ├─ app/
-│  ├─ layout.tsx                 # fonts, <html lang="da">, metadata
-│  ├─ globals.css                # dark fintech-tema (CSS-variabler → @theme)
+│  ├─ layout.tsx                 # fonts, <html lang="da">, boot-script (tema uden flash)
+│  ├─ globals.css                # tema-tokens (@theme, dark/light + accenter)
 │  ├─ page.tsx                   # redirect → /value-bets
 │  ├─ not-found.tsx
-│  └─ (app)/                     # route-group med den fælles app-shell
-│     ├─ layout.tsx              # henter stats + alerts, rendrer <AppShell>
-│     │                          #   (sticky top-nav + stat-cluster, ingen sidebar)
-│     ├─ loading.tsx
+│  ├─ (auth)/                    # login + signup, ingen AppShell
+│  │  ├─ layout.tsx              # split-screen: track-record trust-panel + formular
+│  │  ├─ login/page.tsx
+│  │  └─ signup/page.tsx
+│  ├─ onboarding/                # 7-trins velkomst-wizard efter signup
+│  └─ (app)/                     # route-group med den fælles app-shell (kræver login)
+│     ├─ layout.tsx              # requireUser() + henter stats/settings/alerts
 │     ├─ value-bets/page.tsx     # Value Feed
 │     ├─ portfolio/page.tsx      # Min Portfolio & Tracking
-│     ├─ tools/page.tsx          # Analyse & Værktøjer (EV + Kelly)
-│     └─ settings/page.tsx       # Profil & Indstillinger
+│     ├─ results/page.tsx        # Offentligt track record
+│     └─ profile/page.tsx        # Konto, bankroll, bookmakere, udseende, sikkerhed
 │
-├─ types/                        # domæne-interfaces (ét område pr. fil)
-│  ├─ common.ts league.ts bookmaker.ts value.ts bet.ts portfolio.ts settings.ts
-│  └─ index.ts                   # barrel — importér altid fra "@/types"
+├─ types/                        # domæne-interfaces (ét område pr. fil) — barrel: "@/types"
 │
 ├─ lib/
-│  ├─ utils.ts                   # cn(), delay(), seededRandom(), uid()
+│  ├─ auth/                      # password (scrypt), session (DB-sessions), actions, rate-limit
+│  ├─ db/                        # Drizzle schema + DDL-migrering (kører ved opstart)
 │  ├─ betting-math.ts            # EV, Kelly, de-vig, CLV, ROI (rene funktioner)
 │  ├─ format.ts                  # da-DK formattering (valuta, %, odds, datoer)
-│  ├─ filtering.ts               # delt filter/sort-logik (feed + historik)
-│  ├─ navigation.ts              # NAV_ITEMS
-│  ├─ actions.ts                 # server actions (logBet, markRead, updateSettings)
-│  ├─ mock-data/                 # realistiske datasæt (kun fodbold)
-│  │  ├─ bookmakers.ts           # 8 bookmakere (Pinnacle sharp osv.)
-│  │  ├─ leagues.ts              # 11 ligaer (PL, LaLiga, UCL, Superliga …)
-│  │  ├─ value-opportunities.ts  # 14 value bets m. form, signaler, movement
-│  │  ├─ bets.ts                 # 52 historiske bets (deterministisk seed)
-│  │  ├─ portfolio.ts            # udleder stats / equity-kurve / breakdowns
-│  │  └─ settings.ts             # DEFAULT_SETTINGS
+│  ├─ filtering.ts                # delt filter/sort-logik (feed + historik)
+│  ├─ mock-data/                 # genereret reference-/feed-data (ligaer, bookmakere, odds)
 │  └─ services/                  # ★ DATALAGET — det eneste komponenter rører
-│     ├─ types.ts                # ValueService / PortfolioService / …-interfaces
+│     ├─ types.ts                # service-interfaces
 │     ├─ index.ts                # singletons (byt implementering ud her)
-│     └─ mock/*.ts               # in-memory implementeringer m. kunstig latency
+│     ├─ db/*.ts                 # DB-backede, per-bruger (portfolio, settings, notifikationer, value-read-state)
+│     └─ mock/*.ts               # stadig-mock reference-data (bookmaker, liga, track record, insight)
 │
 └─ components/
-   ├─ ui/                        # primitiver: button, card, badge, input, select,
-   │                             #   modal, table, stat-card, segmented, switch, …
-   ├─ layout/                    # app-shell, top-nav, brand
-   ├─ shared/                    # bookmaker-chip, sport-icon, ev-indicator,
-   │                             #   bet-status-badge, page-header, empty-state
-   ├─ value-bets/                # feed, filter-bar, value-bet-card/-table, …
-   ├─ portfolio/                 # kpi-grid, performance-chart, bet-history-table,
-   │                             #   breakdown-panel, bet-form-modal, add-bet-button
-   ├─ tools/                     # ev-calculator, kelly-calculator
-   └─ settings/                  # settings-form
+   ├─ ui/                        # primitiver
+   ├─ layout/                    # app-shell, top-nav, command-palette, theme-sync
+   ├─ auth/ onboarding/          # login/signup-formular, velkomst-wizard
+   ├─ shared/                    # bookmaker-logo, brand-mark, ev-indicator, form-guide, …
+   ├─ value-bets/                # feed, hero, filter-bar, value-bet-card/-table, drawer
+   └─ portfolio/                 # kpi-grid, performance-chart, bet-history-table, breakdown-panel
 ```
 
-## Sådan går man live (fase 2)
+## Arkitekturregel: skift backend uden at røre komponenter
 
 Alt data flyder gennem interfaces i `src/lib/services/types.ts`. Ingen komponent
-importerer mock-data direkte — de bruger `valueService`, `portfolioService`,
-`bookmakerService`, `settingsService` fra `src/lib/services`.
-
-For at skifte til rigtige kilder:
-
-1. Skriv en ny implementering, fx `createHttpValueService(oddsApiUrl)` eller
-   `createAiValueService(model)`, der opfylder `ValueService`.
-2. Udskift factory-kaldet i `src/lib/services/index.ts` — én linje pr. service.
-3. Færdig. Sider og komponenter ændres ikke.
-
-`src/lib/betting-math.ts` er rene funktioner uden UI-afhængigheder og kan
-genbruges direkte af AI-model-laget.
+importerer `mock-data/*` direkte. Reference-/feed-data (ligaer, bookmakere, odds,
+track record) er stadig genereret — kun brugerdata (konto, portefølje,
+indstillinger) er DB-backet. For at koble en rigtig odds-/AI-kilde på: skriv en
+ny implementering af den relevante interface og udskift factory-kaldet i
+`src/lib/services/index.ts` — én linje pr. service, siderne ændres ikke.
