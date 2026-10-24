@@ -9,6 +9,7 @@ import {
   Moon,
   Search,
   Sun,
+  Trophy,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -75,6 +76,7 @@ export function CommandPalette({ theme }: { theme: ThemeMode }) {
       { id: "feed", label: "Value Feed", icon: LayoutDashboard, run: () => go("/value-bets") },
       { id: "results", label: "Resultater", icon: BadgeCheck, run: () => go("/results") },
       { id: "portfolio", label: "Portfolio", icon: Wallet, run: () => go("/portfolio") },
+      { id: "leagues", label: "Ligaer", hint: "Alle ligaer og favoritter", icon: Trophy, run: () => go("/leagues"), keywords: "liga ligaer turnering favorit" },
       { id: "profile", label: "Profil", icon: UserRound, run: () => go("/profile") },
     ];
     const sections = [

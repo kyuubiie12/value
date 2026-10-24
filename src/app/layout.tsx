@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   Anton,
   Geist,
@@ -9,6 +9,7 @@ import {
   Teko,
 } from "next/font/google";
 import "./globals.css";
+import { PwaRegister } from "@/components/layout/pwa-register";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -69,6 +70,19 @@ export const metadata: Metadata = {
   },
   description:
     "AI-drevet værktøj til at finde value-odds på tværs af bookmakere og tracke din betting-portfolio. Analyse og tracking — ikke et spilsted.",
+  applicationName: "ValueBet AI",
+  appleWebApp: { capable: true, title: "ValueBet", statusBarStyle: "black-translucent" },
+  icons: {
+    icon: [{ url: "/pwa-icon/192", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/pwa-icon/maskable-180", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#090b11" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f6f8" },
+  ],
 };
 
 // Applied before first paint so a saved light theme / accent / font doesn't flash.
@@ -101,7 +115,10 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <PwaRegister />
+        {children}
+      </body>
     </html>
   );
 }

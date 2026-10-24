@@ -20,6 +20,7 @@ export function FormGuide({
   label?: string;
 }) {
   const results = form.toUpperCase().split("").slice(-5);
+  if (!results.length) return null;
   return (
     <span
       className={cn("inline-flex items-center gap-1", className)}

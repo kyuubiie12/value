@@ -51,6 +51,16 @@ export function createDbValueService(): ValueService {
       ).length;
     },
 
+    async getFeedStatus() {
+      return {
+        source: "demo",
+        updatedAt: null,
+        pricedFixtures: MOCK_VALUE_OPPORTUNITIES.length,
+        refreshing: false,
+        quotaSpent: false,
+      };
+    },
+
     async markRead(id) {
       await dbReady;
       const userId = await requireUserId();

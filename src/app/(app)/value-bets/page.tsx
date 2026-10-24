@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SlidersHorizontal } from "lucide-react";
+import { RefreshCw, SlidersHorizontal } from "lucide-react";
 import { ValueFeed } from "@/components/value-bets/value-feed";
 import { TrustStrip } from "@/components/value-bets/trust-strip";
 import { AutoFollowSync } from "@/components/value-bets/auto-follow-sync";
+import { FeedStatusBar } from "@/components/value-bets/feed-status-bar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { restrictOpportunityToBooks } from "@/lib/restrict-opportunity";
 import {
@@ -22,9 +23,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ValueBetsPage() {
-  const [raw, bookmakers, leagues, stats, settings, trackStats, bets] =
+  const [raw, feed, bookmakers, leagues, stats, settings, trackStats, bets] =
     await Promise.all([
       valueService.listOpportunities(),
+      valueService.getFeedStatus(),
       bookmakerService.list(),
       leagueService.list(),
       portfolioService.getStats(),
@@ -70,9 +72,21 @@ export default async function ValueBetsPage() {
         </p>
       </header>
 
-      <TrustStrip stats={trackStats} />
+      {/* The track record is sample data — only show it next to the sample feed. */}
+      {feed.source === "demo" && <TrustStrip stats={trackStats} />}
+      <FeedStatusBar status={feed} />
 
-      {opportunities.length === 0 ? (
+      {opportunities.length === 0 && feed.source === "live" && feed.pricedFixtures === 0 ? (
+        <EmptyState
+          icon={RefreshCw}
+          title={feed.quotaSpent ? "Ingen odds hentet i dag" : "Henter live odds…"}
+          description={
+            feed.quotaSpent
+              ? "Dagens kvote hos odds-leverandøren er brugt. Feedet fyldes igen i morgen."
+              : "Første opdatering tager et par minutter. Siden opdaterer sig selv, når de første value bets er fundet."
+          }
+        />
+      ) : opportunities.length === 0 ? (
         <EmptyState
           icon={SlidersHorizontal}
           title={

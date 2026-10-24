@@ -69,6 +69,33 @@ const STATEMENTS = [
     notification_id TEXT NOT NULL,
     PRIMARY KEY (user_id, notification_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS push_subscriptions_user_id ON push_subscriptions(user_id)`,
+  `CREATE TABLE IF NOT EXISTS odds_fixtures (
+    fixture_id INTEGER PRIMARY KEY,
+    league_id TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    odds_json TEXT,
+    open_json TEXT,
+    odds_updated_at TEXT,
+    first_fetched_at TEXT,
+    fetched_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS odds_fixtures_starts_at ON odds_fixtures(starts_at)`,
+  `CREATE TABLE IF NOT EXISTS feed_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS login_attempts (
     key TEXT PRIMARY KEY,
     count INTEGER NOT NULL,

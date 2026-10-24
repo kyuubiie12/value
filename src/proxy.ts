@@ -8,7 +8,15 @@ import { SESSION_COOKIE } from "@/lib/auth/constants";
  * there, which redirects to /login; the login page renders normally because it
  * does its own `getCurrentUser()` check rather than trusting the cookie.
  */
-const PUBLIC_PATHS = ["/login", "/signup"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  // PWA plumbing must load without a session (browsers fetch these unauthenticated).
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/pwa-icon",
+  "/offline",
+];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

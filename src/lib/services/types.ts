@@ -18,6 +18,7 @@ import type {
   TrackRecordPoint,
   TrackRecordStats,
   UserSettings,
+  FeedStatus,
   ValueFilters,
   ValueOpportunity,
 } from "@/types";
@@ -35,6 +36,8 @@ export interface ValueService {
   /** Unread value alerts — powers the topbar badge. */
   getUnreadCount(): Promise<number>;
   markRead(id: string): Promise<void>;
+  /** Source + freshness of the odds behind the feed. */
+  getFeedStatus(): Promise<FeedStatus>;
 }
 
 export interface PortfolioService {

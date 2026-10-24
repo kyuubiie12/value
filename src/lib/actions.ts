@@ -258,6 +258,20 @@ export async function updateSettingsAction(patch: Partial<UserSettings>) {
   return next;
 }
 
+/** Star / unstar a league as a favourite (order = order of selection). */
+export async function toggleFavoriteLeagueAction(leagueId: string) {
+  const league = await leagueService.get(leagueId);
+  if (!league) return null;
+  const current = await settingsService.get();
+  const has = current.favoriteLeagueIds.includes(leagueId);
+  const favoriteLeagueIds = has
+    ? current.favoriteLeagueIds.filter((id) => id !== leagueId)
+    : [...current.favoriteLeagueIds, leagueId];
+  await settingsService.update({ favoriteLeagueIds });
+  revalidatePath("/", "layout");
+  return favoriteLeagueIds;
+}
+
 // Map onto the same Kelly fractions the profile's "Kelly-fraktion" select offers,
 // so the choice shows up correctly there afterwards.
 const RISK_KELLY: Record<string, number> = {

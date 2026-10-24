@@ -20,6 +20,7 @@ import type { MarketPerformance, MarketStatContext, ValueOpportunity } from "@/t
 import type { OpportunityInsight } from "@/lib/services";
 import { DEFAULT_SETTINGS, getBookmaker } from "@/lib/mock-data";
 import { suggestedStake } from "@/lib/betting-math";
+import { fixtureHref } from "@/lib/fixtures";
 import { valueScore, valueScoreLabel } from "@/lib/value-score";
 import {
   analyseOpportunityAction,
@@ -245,6 +246,22 @@ export function ValueDetailDrawer({
             <div className="mt-2 flex items-center justify-between">
               <FormGuide form={o.homeForm} />
               <FormGuide form={o.awayForm} />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href={fixtureHref(o)}
+                className="glow-hover inline-flex items-center gap-1.5 rounded-full border border-line/70 bg-surface-2/60 px-3 py-1.5 text-[11.5px] font-medium text-muted transition-colors hover:text-fg"
+              >
+                Kampside
+                <ArrowRight className="size-3" aria-hidden />
+              </Link>
+              <Link
+                href={`/leagues/${o.leagueId}`}
+                className="glow-hover inline-flex items-center gap-1.5 rounded-full border border-line/70 bg-surface-2/60 px-3 py-1.5 text-[11.5px] font-medium text-muted transition-colors hover:text-fg"
+              >
+                {o.league}
+                <ArrowRight className="size-3" aria-hidden />
+              </Link>
             </div>
           </div>
 
@@ -537,7 +554,7 @@ export function ValueDetailDrawer({
  * a pick to be the most convincing, most visible thing here — not a
  * footnote next to the AI reasoning.
  */
-function LineDataPanel({
+export function LineDataPanel({
   s,
   homeTeam,
   awayTeam,

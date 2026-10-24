@@ -113,3 +113,17 @@ export type ValueSort =
   | "kickoff-asc"
   | "odds-desc"
   | "detected-desc";
+
+/** Where the feed's odds come from, and how fresh they are. */
+export interface FeedStatus {
+  /** "live" = real bookmaker odds; "demo" = the generated sample feed. */
+  source: "live" | "demo";
+  /** ISO of the latest odds fetch (live only). */
+  updatedAt: string | null;
+  /** Upcoming matches we hold prices for. */
+  pricedFixtures: number;
+  /** A refresh is running right now. */
+  refreshing: boolean;
+  /** The provider's daily quota is used up — odds stay as-is until tomorrow. */
+  quotaSpent: boolean;
+}

@@ -122,5 +122,47 @@ export const loginAttempts = sqliteTable("login_attempts", {
   firstAt: integer("first_at").notNull(), // epoch ms
 });
 
+/** One row per browser/device that opted in to Web Push. */
+export const pushSubscriptions = sqliteTable("push_subscriptions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** Push-service URL — unique per browser install. */
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: text("created_at").notNull(), // ISO
+});
+
+/**
+ * Real-odds cache (API-Football). One row per upcoming fixture we price. The
+ * free plan allows ~100 calls/day, so every user reads this table and a single
+ * background refresh keeps it warm — never one API call per page view.
+ * `odds_json` / `open_json` are `BookOdds` (book → bet id → value → decimal).
+ */
+export const oddsFixtures = sqliteTable("odds_fixtures", {
+  fixtureId: integer("fixture_id").primaryKey(),
+  leagueId: text("league_id").notNull(),
+  startsAt: text("starts_at").notNull(), // ISO
+  homeTeam: text("home_team").notNull(),
+  awayTeam: text("away_team").notNull(),
+  /** Latest prices; null until the first odds call for this fixture. */
+  oddsJson: text("odds_json"),
+  /** Prices at first sight — the baseline for opening odds / price movement. */
+  openJson: text("open_json"),
+  /** The provider's own "odds last updated" stamp. */
+  oddsUpdatedAt: text("odds_updated_at"),
+  firstFetchedAt: text("first_fetched_at"),
+  fetchedAt: text("fetched_at"),
+});
+
+/** Small key/value table for refresh bookkeeping (lock, quota, last list). */
+export const feedMeta = sqliteTable("feed_meta", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export type UserRow = typeof users.$inferSelect;
 export type BetRow = typeof bets.$inferSelect;

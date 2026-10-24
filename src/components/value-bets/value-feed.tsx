@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { SearchX } from "lucide-react";
 import type {
   Bookmaker,
@@ -157,11 +158,16 @@ export function ValueFeed({
           {grouped.map(([leagueId, opps]) => (
             <section key={leagueId} className="flex flex-col gap-3">
               <div className="flex items-center gap-2 border-b border-line pb-2">
-                <LeagueBadge
-                  leagueId={leagueId}
-                  showCountry
-                  className="text-[13px] font-medium text-fg"
-                />
+                <Link
+                  href={`/leagues/${leagueId}`}
+                  className="transition-opacity hover:opacity-75"
+                >
+                  <LeagueBadge
+                    leagueId={leagueId}
+                    showCountry
+                    className="text-[13px] font-medium text-fg"
+                  />
+                </Link>
                 <span className="tabular ml-auto text-[11px] text-subtle">
                   {opps.length} value {opps.length === 1 ? "bet" : "bets"}
                 </span>

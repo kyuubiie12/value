@@ -1,0 +1,82 @@
+/**
+ * Mapping between API-Football ids and the app's own ids. Pure data — no
+ * server-only imports, so the detector can be reused anywhere.
+ */
+
+/** API-Football league id → app league id (see `mock-data/leagues.ts`). */
+export const LEAGUE_BY_API_ID: Record<number, string> = {
+  39: "eng-pl",
+  140: "esp-laliga",
+  135: "ita-seriea",
+  78: "ger-bundesliga",
+  61: "fra-ligue1",
+  88: "ned-eredivisie",
+  94: "por-primeira",
+  119: "den-superliga",
+  40: "eng-championship",
+  2: "uefa-ucl",
+  3: "uefa-uel",
+};
+
+/** Lower = priced first when the daily call budget is tight. */
+export const LEAGUE_PRIORITY: Record<string, number> = {
+  "uefa-ucl": 0,
+  "eng-pl": 1,
+  "den-superliga": 1,
+  "esp-laliga": 2,
+  "ita-seriea": 2,
+  "ger-bundesliga": 2,
+  "fra-ligue1": 3,
+  "uefa-uel": 3,
+  "ned-eredivisie": 4,
+  "por-primeira": 4,
+  "eng-championship": 5,
+};
+
+/** API-Football bookmaker id → app bookmaker id. Unlisted books are ignored. */
+export const BOOKMAKER_BY_API_ID: Record<number, string> = {
+  4: "pinnacle",
+  3: "betfair",
+  8: "bet365",
+  16: "unibet",
+  27: "nordicbet",
+  32: "betano",
+  2: "marathonbet",
+  7: "williamhill",
+  36: "betvictor",
+  11: "1xbet",
+  6: "bwin",
+  26: "betsson",
+  21: "888sport",
+  24: "betway",
+  22: "tipico",
+  9: "dafabet",
+};
+
+/** The sharp reference the fair price is de-vigged from. */
+export const SHARP_BOOK = "pinnacle";
+/** Books used as a reference only — never offered as a place to bet. */
+export const REFERENCE_BOOKS = new Set(["pinnacle", "betfair"]);
+
+/** The bet (market) ids we read, as API-Football numbers them. */
+export const BET = {
+  matchWinner: "1",
+  homeAway: "2",
+  asianHandicap: "4",
+  goalsOverUnder: "5",
+  doubleChance: "12",
+  homeTotal: "16",
+  awayTotal: "17",
+  cornersOverUnder: "45",
+} as const;
+
+export const WANTED_BETS = new Set<string>(Object.values(BET));
+
+/**
+ * Anything above this EV is far more likely stale or mis-parsed prices than a
+ * real edge, so it is dropped rather than shown as a "great" bet.
+ */
+export const MAX_PLAUSIBLE_EV = 0.25;
+
+/** Below this the "edge" is rounding noise, not something worth a stake. */
+export const MIN_EV = 0.005;

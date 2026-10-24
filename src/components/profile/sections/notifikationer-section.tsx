@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Metric, SectionHeader, SliderField } from "../parts";
+import { PushPanel } from "../push-panel";
 import type { FeedPulse, SetSetting } from "../types";
 
 type Key = "valueAlerts" | "priceMoveAlerts" | "betResultAlerts" | "weeklyReport";
@@ -112,6 +113,8 @@ export function NotifikationerSection({
             }
           />
         </div>
+
+        <PushPanel />
 
         <div className="flex flex-col gap-3">
           {CATEGORIES.map((c) => {

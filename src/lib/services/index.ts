@@ -1,4 +1,5 @@
 import { createDbValueService } from "./db/value-service";
+import { createOddsValueService } from "./odds/value-service";
 import { createDbPortfolioService } from "./db/portfolio-service";
 import { createDbSettingsService } from "./db/settings-service";
 import { createDbNotificationService } from "./db/notification-service";
@@ -28,7 +29,10 @@ import type {
  * still generated in `src/lib/mock-data`. Swapping in a real odds/AI backend
  * later means changing only the factory calls below.
  */
-export const valueService: ValueService = createDbValueService();
+/** Real odds (API-Football) when a key is set, else the generated demo feed. */
+export const valueService: ValueService = process.env.API_FOOTBALL_KEY
+  ? createOddsValueService()
+  : createDbValueService();
 export const portfolioService: PortfolioService = createDbPortfolioService();
 export const bookmakerService: BookmakerService = createMockBookmakerService();
 export const leagueService: LeagueService = createMockLeagueService();

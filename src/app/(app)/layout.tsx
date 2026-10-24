@@ -11,6 +11,9 @@ import {
 
 // User-scoped data is read per request; nothing here is cacheable.
 export const dynamic = "force-dynamic";
+// The odds refresh runs after the response (see ValueService) and paces itself
+// to the provider's rate limit, so give it room.
+export const maxDuration = 120;
 
 export default async function AppLayout({
   children,
