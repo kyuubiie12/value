@@ -9,9 +9,9 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-card border border-line/80 bg-surface",
+        "spot rounded-card border border-line/60 bg-surface shadow-[var(--shadow-card)]",
         interactive &&
-          "transition-colors duration-200 hover:border-line-strong",
+          "transition-[border-color,transform,box-shadow] duration-200 hover:border-line-strong",
         className,
       )}
       {...props}
@@ -51,7 +51,7 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
 export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex items-center gap-3 border-t border-line/80 p-5 py-3", className)}
+      className={cn("flex items-center gap-3 border-t border-line/60 p-5 py-3", className)}
       {...props}
     />
   );

@@ -22,7 +22,7 @@ export function ChangePasswordForm() {
     <form
       ref={formRef}
       action={action}
-      className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-line bg-surface-2/40 p-3.5"
+      className="flex flex-col gap-3.5 rounded-card border border-line/60 bg-surface-2/35 p-4"
     >
       <div>
         <p className="text-[13px] font-medium text-fg">Skift adgangskode</p>

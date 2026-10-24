@@ -15,7 +15,7 @@
   --color-surface: #151b28;
   --color-surface-2: #1c2331;
   --color-surface-3: #252d3d;
-  --color-line: #262d3b;
+  --color-line: #232a38;
   --color-line-strong: #3a4457;
 
   /* Text — one cool-gray family. `subtle` tuned to clear WCAG AA (4.5:1) on
@@ -50,12 +50,14 @@
 :root {
   color-scheme: dark;
 
-  --radius-sm: 0.375rem;
-  --radius: 0.625rem;
-  --radius-lg: 0.875rem;
+  --radius-sm: 0.5rem;
+  --radius: 0.875rem;
+  --radius-lg: 1.375rem;
 
   /* Shadows carry the background hue rather than pure black. */
   --shadow-sm: 0 1px 2px rgba(4, 8, 14, 0.6);
+  /* Cards read as lifted surfaces: a faint top-edge highlight + soft drop. */
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 10px 28px -18px rgba(3, 6, 12, 0.85);
   --shadow-md: 0 6px 20px -8px rgba(4, 8, 14, 0.7);
   --shadow-pop: 0 24px 60px -20px rgba(3, 6, 12, 0.85);
 
@@ -88,6 +90,7 @@
   --color-info: #2f7fe0;
 
   --shadow-sm: 0 1px 2px rgba(20, 28, 46, 0.08);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 1px 2px rgba(20, 28, 46, 0.05), 0 10px 26px -18px rgba(20, 28, 46, 0.22);
   --shadow-md: 0 8px 24px -10px rgba(20, 28, 46, 0.18);
   --shadow-pop: 0 24px 60px -22px rgba(20, 28, 46, 0.26);
   --ambient-mix: 4%;
@@ -111,6 +114,30 @@
   --color-primary-strong: #ffc667;
   --color-primary-contrast: #1c1400;
   --color-ring: #eaa93c;
+}
+[data-accent="rose"] {
+  --color-primary: #f0668f;
+  --color-primary-strong: #ff93b3;
+  --color-primary-contrast: #200711;
+  --color-ring: #f0668f;
+}
+[data-accent="coral"] {
+  --color-primary: #f47f57;
+  --color-primary-strong: #ffa583;
+  --color-primary-contrast: #200c04;
+  --color-ring: #f47f57;
+}
+[data-accent="lime"] {
+  --color-primary: #a6d62f;
+  --color-primary-strong: #c6f05a;
+  --color-primary-contrast: #121a02;
+  --color-ring: #a6d62f;
+}
+[data-accent="silver"] {
+  --color-primary: #c3cad6;
+  --color-primary-strong: #e6eaf1;
+  --color-primary-contrast: #0c0f15;
+  --color-ring: #c3cad6;
 }
 
 [data-theme="light"][data-accent="emerald"],
@@ -137,6 +164,74 @@
   --color-primary-strong: #a86f12;
   --color-primary-contrast: #ffffff;
   --color-ring: #c9871f;
+}
+[data-theme="light"][data-accent="rose"] {
+  --color-primary: #d6406e;
+  --color-primary-strong: #b82f5a;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #d6406e;
+}
+[data-theme="light"][data-accent="coral"] {
+  --color-primary: #dd5f35;
+  --color-primary-strong: #bd4a24;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #dd5f35;
+}
+[data-theme="light"][data-accent="lime"] {
+  --color-primary: #6a9a0c;
+  --color-primary-strong: #55800a;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #6a9a0c;
+}
+[data-theme="light"][data-accent="silver"] {
+  --color-primary: #3a4250;
+  --color-primary-strong: #20262f;
+  --color-primary-contrast: #ffffff;
+  --color-ring: #3a4250;
+}
+
+/* ---- Dark background tones (light theme ignores these) ------------------- */
+[data-theme="dark"][data-surface="graphite"] {
+  --color-bg: #0d0e10;
+  --color-bg-elevated: #141518;
+  --color-surface: #17191d;
+  --color-surface-2: #1e2025;
+  --color-surface-3: #2a2d33;
+  --color-line: #2a2c31;
+  --color-line-strong: #41444c;
+}
+[data-theme="dark"][data-surface="ink"] {
+  --color-bg: #030407;
+  --color-bg-elevated: #080a0f;
+  --color-surface: #0c0f15;
+  --color-surface-2: #131722;
+  --color-surface-3: #1a1f2a;
+  --color-line: #181d28;
+  --color-line-strong: #2b3342;
+}
+
+/* ---- Corner style — re-tiers the radius tokens used everywhere ---------- */
+[data-corners="sharp"] {
+  --radius-sm: 0.25rem;
+  --radius: 0.375rem;
+  --radius-lg: 0.625rem;
+}
+[data-corners="soft"] {
+  --radius-sm: 0.75rem;
+  --radius: 1.25rem;
+  --radius-lg: 1.75rem;
+}
+
+/* ---- Hover light --------------------------------------------------------
+   Strength knob. 0 turns the effect off; subtle is the default. */
+:root {
+  --glow-k: 1;
+}
+[data-glow="off"] {
+  --glow-k: 0;
+}
+[data-glow="strong"] {
+  --glow-k: 2.1;
 }
 
 /*
@@ -218,13 +313,6 @@ html {
 body {
   min-height: 100vh;
   background-color: var(--color-bg);
-  background-image: radial-gradient(
-    820px 460px at 3% -12%,
-    color-mix(in oklab, var(--color-primary) var(--ambient-mix), transparent),
-    transparent 72%
-  );
-  background-attachment: fixed;
-  background-repeat: no-repeat;
   color: var(--color-fg);
   font-family: var(--font-sans);
   font-feature-settings: "cv05", "cv09", "ss01";
@@ -308,5 +396,150 @@ h3,
   }
   .card-enter {
     animation: none;
+  }
+}
+
+/* ---- Hover light ---------------------------------------------------------
+   `.spot` surfaces catch a soft accent light under the pointer and light up
+   their own outline where it passes. `<Spotlight />` feeds --mx/--my; the
+   strength comes from --glow-k (user setting: off / subtle / strong).
+   Registered so the intensity can actually transition.
+   Kept in `@layer components` on purpose: unlayered rules would beat Tailwind
+   utilities (e.g. `.fixed`) — see AGENTS.md. */
+@property --spot-o {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@layer components {
+  .spot {
+    position: relative;
+    background-image: radial-gradient(
+      420px circle at var(--mx, 50%) var(--my, 0%),
+      color-mix(
+        in oklab,
+        var(--color-primary) calc(min(100, var(--spot-o) * var(--glow-k) * 10) * 1%),
+        transparent
+      ),
+      transparent 70%
+    );
+    background-repeat: no-repeat;
+    transition: --spot-o 0.4s ease;
+  }
+  .spot:hover,
+  .spot:focus-visible {
+    --spot-o: 1;
+  }
+  .spot::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: radial-gradient(
+      300px circle at var(--mx, 50%) var(--my, 0%),
+      color-mix(
+        in oklab,
+        var(--color-primary) calc(min(100, var(--spot-o) * var(--glow-k) * 65) * 1%),
+        transparent
+      ),
+      transparent 68%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  /* Pills / buttons: the glow sits behind them instead of following the mouse. */
+  .glow-hover {
+    transition: box-shadow 0.25s ease, background-color 0.15s ease,
+      border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .glow-hover:hover {
+    box-shadow: 0 6px 22px -6px
+      color-mix(
+        in oklab,
+        var(--color-primary) calc(min(100, var(--glow-k) * 42) * 1%),
+        transparent
+      );
+  }
+}
+
+/* Animations switched off in the profile (the OS reduced-motion rule above
+   already handles that case). Spinners keep spinning — they signal loading. */
+[data-motion="off"] *:not(.animate-spin):not(.animate-ping),
+[data-motion="off"] *::before,
+[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* ---- Range slider ---------------------------------------------------------
+   Native <input type="range"> restyled; the filled part is painted from the
+   inline `--pct` (0–100) so it works in every engine without extra markup. */
+@layer components {
+  .range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+  }
+  .range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--color-primary) 0 calc(var(--pct, 0) * 1%),
+      var(--color-surface-3) calc(var(--pct, 0) * 1%) 100%
+    );
+  }
+  .range::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-surface-3);
+  }
+  .range::-moz-range-progress {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-primary);
+  }
+  .range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--color-fg);
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 2px 8px rgba(3, 6, 12, 0.5);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+  }
+  .range::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--color-fg);
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 2px 8px rgba(3, 6, 12, 0.5);
+  }
+  .range:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
+    box-shadow:
+      0 0 0 6px color-mix(in oklab, var(--color-primary) calc(min(100, var(--glow-k) * 16) * 1%), transparent),
+      0 2px 8px rgba(3, 6, 12, 0.5);
+  }
+  .range:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-ring) 40%, transparent);
   }
 }

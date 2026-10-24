@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { filterNotifications } from "@/lib/notification-prefs";
 import { requireUser } from "@/lib/auth/session";
+import { isAdminEmail } from "@/lib/auth/admin";
 import {
   notificationService,
   portfolioService,
@@ -16,7 +17,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireUser();
+  const user = await requireUser();
 
   const settings = await settingsService.get();
   if (!settings.onboardingComplete) redirect("/onboarding");
@@ -36,6 +37,7 @@ export default async function AppLayout({
       settings={settings}
       notifications={notifications}
       notificationUnread={notificationUnread}
+      isAdmin={isAdminEmail(user.email)}
     >
       {children}
     </AppShell>

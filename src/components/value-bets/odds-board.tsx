@@ -43,7 +43,7 @@ export function OddsBoard({
                 {book?.name ?? q.bookmakerId}
               </span>
               {book?.isSharp && (
-                <span className="shrink-0 rounded-[3px] bg-surface-3 px-1 text-[8px] font-semibold uppercase text-subtle">
+                <span className="shrink-0 rounded-full bg-surface-3 px-1.5 py-px text-[8px] font-semibold uppercase text-subtle">
                   sharp
                 </span>
               )}

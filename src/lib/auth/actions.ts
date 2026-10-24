@@ -122,7 +122,7 @@ export async function loginAction(
   }
 
   const key = await clientKey(email);
-  const throttle = checkLoginThrottle(key);
+  const throttle = await checkLoginThrottle(key);
   if (throttle.blocked) {
     return {
       error: `For mange forsøg. Prøv igen om ${throttle.retryInMinutes} min.`,
@@ -139,11 +139,11 @@ export async function loginAction(
 
   const ok = user && (await verifyPassword(password, user.passwordHash));
   if (!ok) {
-    recordLoginFailure(key);
+    await recordLoginFailure(key);
     return { error: "Forkert e-mail eller adgangskode.", values: { email } };
   }
 
-  clearLoginThrottle(key);
+  await clearLoginThrottle(key);
   await pruneExpiredSessions();
   await createSession(user.id);
   redirect("/value-bets");

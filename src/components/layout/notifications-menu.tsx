@@ -104,7 +104,20 @@ export function NotificationsMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-[340px] overflow-hidden rounded-[var(--radius)] border border-line-strong bg-bg-elevated shadow-[var(--shadow-pop)]">
+        <div
+          className={cn(
+            "z-50 overflow-hidden rounded-[var(--radius)] border border-line-strong bg-bg-elevated shadow-[var(--shadow-pop)]",
+            // Anchoring to the bell button's own tiny wrapper with `right-0`
+            // pushes a 340px panel off the left edge on narrow viewports
+            // (the wrapper sits well right of screen-center, not at the
+            // viewport edge). Below `sm`, use `fixed` so it's positioned
+            // against the viewport instead — a full-width sheet under the
+            // header. From `sm` up there's enough room for the original
+            // anchored popover.
+            "fixed inset-x-4 top-[60px]",
+            "sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[340px]",
+          )}
+        >
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <span className="text-[13px] font-semibold text-fg">Notifikationer</span>
             {unread > 0 && (

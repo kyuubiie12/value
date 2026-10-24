@@ -7,7 +7,9 @@ import {
   leagueService,
   portfolioService,
   settingsService,
+  valueService,
 } from "@/lib/services";
+import type { FeedPulse } from "@/components/profile/types";
 
 /** Total stake across bets placed within the last `windowMs`. */
 function sumStakeSince(bets: Bet[], windowMs: number): number {
@@ -29,14 +31,28 @@ export default async function ProfilePage({
   searchParams: Promise<{ s?: string }>;
 }) {
   const { s } = await searchParams;
-  const [settings, bookmakers, leagues, stats, equity, bets] = await Promise.all([
+  const [settings, bookmakers, leagues, stats, equity, bets, opportunities] = await Promise.all([
     settingsService.get(),
     bookmakerService.list(),
     leagueService.list(),
     portfolioService.getStats(),
     portfolioService.getEquityCurve(),
     portfolioService.listBets(),
+    valueService.listOpportunities(),
   ]);
+
+  // Today’s value bets, boiled down to what the settings tabs need to show
+  // live consequences ("3 af 14 passerer din grænse", bookmaker coverage, …).
+  const pulse: FeedPulse[] = opportunities.map((o) => ({
+    id: o.id,
+    leagueId: o.leagueId,
+    event: `${o.homeTeam} – ${o.awayTeam}`,
+    ev: o.expectedValue,
+    kelly: o.kellyFraction,
+    odds: o.bestOdds,
+    bestBookmakerId: o.bestBookmakerId,
+    quotedBy: o.quotes.map((q) => q.bookmakerId),
+  }));
 
   const stakedThisWeek = sumStakeSince(bets, 7 * 86_400_000);
 
@@ -53,6 +69,7 @@ export default async function ProfilePage({
         stats={stats}
         bankrollHistory={equity.map((p) => p.bankroll)}
         stakedThisWeek={Math.round(stakedThisWeek)}
+        pulse={pulse}
         initialSection={s}
       />
     </div>

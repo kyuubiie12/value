@@ -14,7 +14,7 @@ export function LeagueCode({
   return (
     <span
       className={cn(
-        "tabular inline-grid h-[15px] min-w-[24px] place-items-center rounded-[3px] px-1 text-[9px] font-semibold uppercase tracking-wide ring-1 ring-inset",
+        "tabular inline-grid h-[17px] min-w-[28px] place-items-center rounded-full px-1.5 text-[9px] font-semibold uppercase tracking-wide ring-1 ring-inset",
         !accent && "bg-surface-2 text-subtle ring-line",
         className,
       )}

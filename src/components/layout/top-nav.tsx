@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, ShieldCheck, X } from "lucide-react";
 import type { AppNotification, PortfolioStats, UserSettings } from "@/types";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { formatCurrency, formatPercent, formatSignedCurrency } from "@/lib/format";
@@ -16,11 +16,13 @@ export function TopNav({
   settings,
   notifications,
   notificationUnread,
+  isAdmin = false,
 }: {
   stats: PortfolioStats;
   settings: UserSettings;
   notifications: AppNotification[];
   notificationUnread: number;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = React.useState(false);
@@ -91,6 +93,26 @@ export function TopNav({
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              aria-current={isActive("/admin") ? "page" : undefined}
+              className={cn(
+                "group flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors duration-150",
+                "outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                isActive("/admin")
+                  ? "bg-primary/12 text-primary-strong ring-1 ring-inset ring-primary/20"
+                  : "text-muted hover:bg-surface-2 hover:text-fg",
+              )}
+            >
+              <ShieldCheck
+                className={cn("size-4", isActive("/admin") ? "text-primary-strong" : "text-subtle group-hover:text-fg")}
+                strokeWidth={2}
+                aria-hidden
+              />
+              Admin
+            </Link>
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
@@ -129,7 +151,9 @@ export function TopNav({
       {menuOpen && (
         <div className="border-t border-line bg-bg lg:hidden">
           <nav className="mx-auto flex max-w-[1180px] flex-col gap-0.5 px-4 py-3 sm:px-6">
-            {NAV_ITEMS.map((item) => {
+            {/* "Profil" itself is rendered below with the avatar badge —
+                skip it here so it doesn't appear twice in the list. */}
+            {NAV_ITEMS.filter((item) => item.href !== "/profile").map((item) => {
               const active = isActive(item.href);
               const Icon = item.icon;
               return (
@@ -160,22 +184,47 @@ export function TopNav({
                 </Link>
               );
             })}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMenuOpen(false)}
+                aria-current={isActive("/admin") ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-[13px] transition-colors",
+                  isActive("/admin")
+                    ? "bg-primary/12 text-primary-strong"
+                    : "text-muted hover:bg-surface-2/60 hover:text-fg",
+                )}
+              >
+                <ShieldCheck className="size-4 text-subtle" strokeWidth={2} aria-hidden />
+                <span className="font-medium">Admin</span>
+                <span className="ml-auto text-[11px] text-subtle">Brugere og aktivitet</span>
+              </Link>
+            )}
             <Link
               href="/profile"
               onClick={() => setMenuOpen(false)}
+              aria-current={isActive("/profile") ? "page" : undefined}
               className={cn(
                 "mt-0.5 flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-[13px] transition-colors",
                 isActive("/profile")
-                  ? "bg-surface-2 text-fg"
+                  ? "bg-primary/12 text-primary-strong"
                   : "text-muted hover:bg-surface-2/60 hover:text-fg",
               )}
             >
-              <span className="grid size-4 place-items-center rounded-full bg-surface-3 text-[8px] font-semibold text-fg">
+              <span
+                className={cn(
+                  "grid size-4 place-items-center rounded-full text-[8px] font-semibold",
+                  isActive("/profile")
+                    ? "bg-primary/20 text-primary-strong"
+                    : "bg-surface-3 text-fg",
+                )}
+              >
                 {initials}
               </span>
               <span className="font-medium">Profil</span>
               <span className="ml-auto text-[11px] text-subtle">
-                Bankroll, bookmakere, alerts
+                {NAV_ITEMS.find((i) => i.href === "/profile")?.description}
               </span>
             </Link>
           </nav>
@@ -187,7 +236,7 @@ export function TopNav({
 
 function StatCluster({ stats }: { stats: PortfolioStats }) {
   return (
-    <div className="mr-1 hidden items-center divide-x divide-line overflow-hidden rounded-[var(--radius-sm)] border border-line bg-surface/70 sm:flex">
+    <div className="mr-1 hidden items-center divide-x divide-line/60 overflow-hidden rounded-full border border-line/60 bg-surface/70 sm:flex">
       <Stat label="Bankroll" value={formatCurrency(stats.bankroll, stats.currency)} />
       <Stat
         label="ROI"

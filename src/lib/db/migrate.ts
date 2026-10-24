@@ -13,7 +13,8 @@ const STATEMENTS = [
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     display_name TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    last_login_at TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -68,7 +69,19 @@ const STATEMENTS = [
     notification_id TEXT NOT NULL,
     PRIMARY KEY (user_id, notification_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS login_attempts (
+    key TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    first_at INTEGER NOT NULL
+  )`,
 ];
+
+/**
+ * Columns added after a table first shipped. `CREATE TABLE IF NOT EXISTS` won’t
+ * touch an existing table, so these are applied one by one and a "duplicate
+ * column" error (fresh DBs already have it) is expected and ignored.
+ */
+const ADD_COLUMNS = ["ALTER TABLE users ADD COLUMN last_login_at TEXT"];
 
 let done: Promise<void> | null = null;
 
@@ -77,6 +90,13 @@ export function runMigrations(client: Client): Promise<void> {
     done = (async () => {
       for (const sql of STATEMENTS) {
         await client.execute(sql);
+      }
+      for (const sql of ADD_COLUMNS) {
+        try {
+          await client.execute(sql);
+        } catch (err) {
+          if (!/duplicate column/i.test(String(err))) throw err;
+        }
       }
     })();
   }

@@ -75,7 +75,11 @@ export const metadata: Metadata = {
 const BOOT = `try{var d=document.documentElement,s=localStorage,t=s.getItem('vb-theme')||'dark';
 d.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):t;
 d.dataset.accent=s.getItem('vb-accent')||'emerald';
-d.dataset.displayFont=s.getItem('vb-font')||'grotesk';}catch(e){
+d.dataset.displayFont=s.getItem('vb-font')||'grotesk';
+d.dataset.surface=s.getItem('vb-surface')||'midnight';
+d.dataset.corners=s.getItem('vb-corners')||'round';
+d.dataset.glow=s.getItem('vb-glow')||'subtle';
+d.dataset.motion=s.getItem('vb-anim')==='false'?'off':'on';}catch(e){
 document.documentElement.dataset.theme='dark';}`;
 
 export default function RootLayout({
@@ -87,6 +91,10 @@ export default function RootLayout({
       data-theme="dark"
       data-accent="emerald"
       data-display-font="grotesk"
+      data-surface="midnight"
+      data-corners="round"
+      data-glow="subtle"
+      data-motion="on"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${fontVars} antialiased`}
     >

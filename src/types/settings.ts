@@ -6,7 +6,22 @@ export type UnitMode = "fixed" | "percentage";
 export type DisplayFont = "grotesk" | "oswald" | "teko" | "rajdhani" | "anton";
 
 export type ThemeMode = "dark" | "light" | "system";
-export type AccentColor = "emerald" | "blue" | "violet" | "amber";
+export type AccentColor =
+  | "emerald"
+  | "blue"
+  | "violet"
+  | "amber"
+  | "rose"
+  | "coral"
+  | "lime"
+  | "silver";
+
+/** Dark-theme background tone. Ignored by the light theme. */
+export type SurfaceTone = "midnight" | "graphite" | "ink";
+/** How rounded cards, buttons and inputs are. */
+export type CornerStyle = "sharp" | "round" | "soft";
+/** Strength of the hover light / outline glow. */
+export type GlowLevel = "off" | "subtle" | "strong";
 
 /** User preferences that shape the feed and the tracker. */
 export interface UserSettings {
@@ -20,6 +35,14 @@ export interface UserSettings {
   theme: ThemeMode;
   /** Accent colour. */
   accent: AccentColor;
+  /** Dark-theme background tone. */
+  surface: SurfaceTone;
+  /** Corner roundness of cards, buttons and inputs. */
+  corners: CornerStyle;
+  /** Hover light / glowing outlines. */
+  glow: GlowLevel;
+  /** Entrance + hover animations (the OS reduced-motion setting always wins). */
+  animations: boolean;
   /** When the account was created — read-only, shown on the profile. */
   memberSince: string; // ISO
   /** Subscription tier. */

@@ -23,7 +23,7 @@ export function StatCard({
 }) {
   const positive = typeof delta === "number" && delta >= 0;
   return (
-    <div className={cn("rounded-card border border-line/80 bg-surface p-4", className)}>
+    <div className={cn("spot rounded-card border border-line/60 bg-surface p-4 shadow-[var(--shadow-card)]", className)}>
       <div className="flex items-center gap-2">
         {Icon && (
           <Icon className="size-3.5 text-subtle" aria-hidden strokeWidth={2} />

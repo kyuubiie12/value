@@ -107,7 +107,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 const inputClass = (error?: string) =>
   cn(
     "h-11 w-full rounded-[var(--radius-sm)] border bg-bg px-3.5 text-sm text-fg",
-    "placeholder:text-subtle/70 outline-none transition-colors duration-150",
+    "placeholder:text-subtle outline-none transition-colors duration-150",
     "focus-visible:ring-2 focus-visible:ring-ring/25",
     error
       ? "border-negative/60 focus-visible:border-negative/70"
@@ -137,9 +137,9 @@ function FieldShell({
       </label>
       {children}
       {error ? (
-        <p className="mt-1 text-[11px] text-negative">{error}</p>
+        <p className="mt-1 text-xs text-negative">{error}</p>
       ) : hint ? (
-        <p className="mt-1 text-[11px] text-subtle">{hint}</p>
+        <p className="mt-1 text-xs text-subtle">{hint}</p>
       ) : null}
     </div>
   );

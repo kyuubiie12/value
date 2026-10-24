@@ -12,7 +12,7 @@ export function Brand({ className }: { className?: string }) {
     >
       <span
         aria-hidden
-        className="grid size-[26px] place-items-center rounded-[7px] bg-primary text-primary-contrast shadow-[0_4px_14px_-4px_rgba(16,185,129,0.55)]"
+        className="grid size-[26px] place-items-center rounded-[9px] bg-primary text-primary-contrast shadow-[var(--shadow-sm)]"
       >
         <svg viewBox="0 0 24 24" className="size-[15px]" fill="none" aria-hidden>
           <path

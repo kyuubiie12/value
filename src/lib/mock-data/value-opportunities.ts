@@ -1,5 +1,6 @@
 import type {
   Confidence,
+  MarketStatContext,
   MarketType,
   OddsQuote,
   PriceMovement,
@@ -35,6 +36,8 @@ interface OpportunitySeed {
   movement: PriceMovement;
   booksCount: number;
   signals: string[];
+  /** For counting markets (corners, cards): the data behind the line. */
+  statContext?: MarketStatContext;
   detectedMinutesAgo: number;
   read?: boolean;
 }
@@ -65,10 +68,18 @@ const SEEDS: OpportunitySeed[] = [
     movement: "shortening",
     booksCount: 9,
     signals: [
-      "Over 3,5 i 5 af 6 seneste indbyrdes",
+      "Real Madrid scorer 2,4 mål i snit hjemme, Liverpool 2,1 på udebane",
+      "Indbyrdes: de seneste 6 opgør har haft snit 4,3 mål",
       "Begge hold i angrebsform (xG > 2,0)",
-      "Sharp-bøger prissætter Over lavere end markedet",
     ],
+    statContext: {
+      metric: "mål",
+      homeAvg: 2.4,
+      awayAvg: 2.1,
+      h2hAvg: 4.3,
+      h2hMatches: 6,
+      line: 3.5,
+    },
     detectedMinutesAgo: 6,
   },
   {
@@ -207,9 +218,18 @@ const SEEDS: OpportunitySeed[] = [
     movement: "shortening",
     booksCount: 9,
     signals: [
-      "Milano-derbyet: Over 2,5 i 5 af 6 seneste",
+      "Inter scorer 1,8 mål i snit hjemme, Milan 1,5 på udebane",
+      "Indbyrdes: Milano-derbyet har haft snit 3,1 mål i de seneste 6 opgør",
       "Begge målmænd i tvivl med mindre skader",
     ],
+    statContext: {
+      metric: "mål",
+      homeAvg: 1.8,
+      awayAvg: 1.5,
+      h2hAvg: 3.1,
+      h2hMatches: 6,
+      line: 2.5,
+    },
     detectedMinutesAgo: 27,
   },
   {
@@ -289,9 +309,18 @@ const SEEDS: OpportunitySeed[] = [
     movement: "stable",
     booksCount: 9,
     signals: [
-      "St. James' Park: Over 2,5 i 7 af 9",
+      "Newcastle scorer 1,7 mål i snit hjemme, Brighton 1,6 på udebane",
+      "Indbyrdes: St. James' Park har haft snit 3,2 mål i de seneste 9 opgør",
       "Brighton højt pres → åbne kampe",
     ],
+    statContext: {
+      metric: "mål",
+      homeAvg: 1.7,
+      awayAvg: 1.6,
+      h2hAvg: 3.2,
+      h2hMatches: 9,
+      line: 2.5,
+    },
     detectedMinutesAgo: 13,
   },
   {
@@ -343,9 +372,18 @@ const SEEDS: OpportunitySeed[] = [
     movement: "shortening",
     booksCount: 5,
     signals: [
-      "Leeds scorer 2+ i 6 af 7 hjemmekampe",
+      "Leeds scorer 2,1 mål i snit hjemme, Southampton lukker 1,8 ind på udebane",
+      "Indbyrdes: Leeds har scoret 2,0 mål i snit i de seneste 5 opgør mod Southampton",
       "Southampton lækker chancer på udebane",
     ],
+    statContext: {
+      metric: "mål",
+      homeAvg: 2.1,
+      awayAvg: 1.8,
+      h2hAvg: 2.0,
+      h2hMatches: 5,
+      line: 1.5,
+    },
     detectedMinutesAgo: 27,
   },
   {
@@ -396,10 +434,84 @@ const SEEDS: OpportunitySeed[] = [
     movement: "stable",
     booksCount: 4,
     signals: [
-      "FCK snittet 6,3 hjørnespark på udebane",
+      "AGF henter selv 4,6 hjørnespark i snit på hjemmebane, FCK afgiver 6,3 på udebane",
+      "Indbyrdes: de seneste 4 opgør mellem AGF og FCK har haft snit 11,2 hjørnespark",
       "AGF forsvarer dybt → mange afslutninger blokeret",
     ],
+    statContext: {
+      metric: "hjørnespark",
+      homeAvg: 4.6,
+      awayAvg: 6.3,
+      h2hAvg: 11.2,
+      h2hMatches: 4,
+      line: 9.5,
+    },
     detectedMinutesAgo: 8,
+  },
+  {
+    id: "vo_pl_totn_evt_cards",
+    leagueId: "eng-pl",
+    homeTeam: "Tottenham",
+    awayTeam: "Everton",
+    homeForm: "WDWLW",
+    awayForm: "LWDLW",
+    kickoffInHours: 22,
+    market: "cards",
+    marketLabel: "Kort over/under 4.5",
+    selection: "Over 4.5 kort",
+    sharpField: [1.95, 1.85],
+    selectionIndex: 0,
+    quotes: [
+      { bookmakerId: "betano", price: 2.15, minutesAgo: 5 },
+      { bookmakerId: "bet365", price: 2.05, minutesAgo: 9 },
+      { bookmakerId: "unibet", price: 2.0, minutesAgo: 12 },
+      { bookmakerId: "nordicbet", price: 1.95, minutesAgo: 15 },
+    ],
+    openingBest: 2.0,
+    movement: "shortening",
+    booksCount: 6,
+    signals: [
+      "Tottenham pådrager sig selv 2,3 kort i snit på hjemmebane, Everton får 2,6 på udebane",
+      "Indbyrdes: de seneste 3 opgør mellem Tottenham og Everton har haft snit 5,7 kort",
+      "Dommeren til kampen uddeler i snit 5,1 kort per kamp i sæsonen",
+    ],
+    statContext: {
+      metric: "kort",
+      homeAvg: 2.3,
+      awayAvg: 2.6,
+      h2hAvg: 5.7,
+      h2hMatches: 3,
+      line: 4.5,
+    },
+    detectedMinutesAgo: 14,
+  },
+  {
+    id: "vo_eredivisie_fey_az_htft",
+    leagueId: "ned-eredivisie",
+    homeTeam: "Feyenoord",
+    awayTeam: "AZ Alkmaar",
+    homeForm: "WWDWW",
+    awayForm: "DWWLD",
+    kickoffInHours: 40,
+    market: "ht-ft",
+    marketLabel: "Halvleg/fuldtid",
+    selection: "Feyenoord/Feyenoord",
+    sharpField: [3.3, 1.38],
+    selectionIndex: 0,
+    quotes: [
+      { bookmakerId: "betano", price: 3.6, minutesAgo: 8 },
+      { bookmakerId: "bet365", price: 3.5, minutesAgo: 13 },
+      { bookmakerId: "unibet", price: 3.4, minutesAgo: 16 },
+    ],
+    openingBest: 3.4,
+    movement: "shortening",
+    booksCount: 6,
+    signals: [
+      "Feyenoord fører ved pausen i 7 af 10 hjemmekampe, AZ vender sjældent en pausefør (kun 1 af 9)",
+      "Indbyrdes: Feyenoord førte til pause og vandt i 3 af de seneste 5 opgør mod AZ",
+      "Feyenoord scorer typisk tidligt hjemme",
+    ],
+    detectedMinutesAgo: 10,
   },
   {
     id: "vo_laliga_atm_ath_1x2",
@@ -480,6 +592,7 @@ function buildOpportunity(seed: OpportunitySeed): ValueOpportunity {
     kellyFraction: Number(kellyFraction.toFixed(4)),
     confidence: confidenceFor(ev, seed.booksCount, seed.movement),
     signals: seed.signals,
+    statContext: seed.statContext,
     quotes,
     booksCount: seed.booksCount,
     detectedAt: new Date(NOW.getTime() - seed.detectedMinutesAgo * 60_000).toISOString(),

@@ -19,24 +19,6 @@ export default async function AuthLayout({
     <div className="min-h-screen bg-bg lg:grid lg:grid-cols-[1.05fr_1fr]">
       {/* Marketing / trust panel — desktop only */}
       <aside className="relative hidden overflow-hidden border-r border-line bg-surface lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.5]"
-          style={{
-            backgroundImage:
-              "radial-gradient(120% 90% at 15% 0%, color-mix(in oklab, var(--color-primary) 14%, transparent), transparent 55%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.35] [mask-image:radial-gradient(80%_60%_at_20%_10%,black,transparent)]"
-          style={{
-            backgroundImage:
-              "linear-gradient(var(--color-line) 1px, transparent 1px), linear-gradient(90deg, var(--color-line) 1px, transparent 1px)",
-            backgroundSize: "46px 46px",
-          }}
-        />
-
         <div className="relative z-10">
           <BrandMark size="md" />
         </div>
@@ -65,7 +47,7 @@ export default async function AuthLayout({
           </dl>
         </div>
 
-        <p className="relative z-10 text-[11px] leading-relaxed text-subtle">
+        <p className="relative z-10 text-xs leading-relaxed text-subtle">
           Analyse- og trackingværktøj. Vi formidler ikke spil og placerer ingen
           væddemål. Spil ansvarligt · 18+ · Track record siden{" "}
           {formatDate(stats.since)}
@@ -81,7 +63,7 @@ export default async function AuthLayout({
           {children}
         </div>
 
-        <p className="mt-10 max-w-[20rem] text-center text-[11px] leading-relaxed text-subtle lg:hidden">
+        <p className="mt-10 max-w-[20rem] text-center text-xs leading-relaxed text-subtle lg:hidden">
           Vi formidler ikke spil og placerer ingen væddemål. Spil ansvarligt · 18+
         </p>
       </main>
@@ -95,7 +77,7 @@ function Stat({ value, label }: { value: string; label: string }) {
       <dd className="tabular text-[1.35rem] font-semibold leading-none text-fg">
         {value}
       </dd>
-      <dt className="mt-1.5 text-[11px] leading-tight text-subtle">{label}</dt>
+      <dt className="mt-1.5 text-xs leading-tight text-subtle">{label}</dt>
     </div>
   );
 }

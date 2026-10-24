@@ -12,7 +12,7 @@ export function DeleteAccountRow({ email }: { email: string }) {
   const matches = typed.trim().toLowerCase() === email.toLowerCase();
 
   return (
-    <div className="rounded-[var(--radius-sm)] border border-negative/25 bg-negative/[0.04] px-3.5 py-3">
+    <div className="rounded-card border border-negative/25 bg-negative/[0.04] p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-fg">Slet konto</p>

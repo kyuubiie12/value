@@ -31,7 +31,7 @@ export function FormGuide({
           <span
             key={i}
             className={cn(
-              "grid size-3.5 place-items-center rounded-[3px] text-[8px] font-bold leading-none",
+              "grid size-4 place-items-center rounded-full text-[8px] font-bold leading-none",
               DOT[r] ?? "bg-line-strong text-fg",
             )}
           >

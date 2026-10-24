@@ -4,14 +4,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type {
   AccentColor,
+  CornerStyle,
   Currency,
   DisplayFont,
+  GlowLevel,
   MarketType,
   NewBetInput,
+  SurfaceTone,
   ThemeMode,
   UserSettings,
 } from "@/types";
 import { DEFAULT_SETTINGS } from "@/lib/mock-data";
+import { APPEARANCE_DEFAULTS, sanitizeAppearance } from "@/lib/appearance";
 import { suggestedStake } from "@/lib/betting-math";
 import { restrictOpportunityToBooks } from "@/lib/restrict-opportunity";
 import {
@@ -243,7 +247,13 @@ export async function reopenBetAction(id: string) {
 
 /** Persist profile / settings changes. */
 export async function updateSettingsAction(patch: Partial<UserSettings>) {
-  const next = await settingsService.update(patch);
+  // Appearance values come from the client — never store anything off-list.
+  const safe: Partial<UserSettings> = { ...patch };
+  const a = sanitizeAppearance(patch);
+  for (const k of Object.keys(APPEARANCE_DEFAULTS) as (keyof typeof APPEARANCE_DEFAULTS)[]) {
+    if (k in patch) (safe as Record<string, unknown>)[k] = a[k];
+  }
+  const next = await settingsService.update(safe);
   revalidatePath("/", "layout");
   return next;
 }
@@ -273,13 +283,12 @@ export interface OnboardingInput {
   theme: ThemeMode;
   accent: AccentColor;
   displayFont: DisplayFont;
+  surface?: SurfaceTone;
+  corners?: CornerStyle;
+  glow?: GlowLevel;
+  animations?: boolean;
 }
 
-const THEMES: ThemeMode[] = ["dark", "light", "system"];
-const ACCENTS: AccentColor[] = ["emerald", "blue", "violet", "amber"];
-const FONTS: DisplayFont[] = ["grotesk", "oswald", "teko", "rajdhani", "anton"];
-const oneOf = <T,>(list: T[], v: T, fallback: T) =>
-  list.includes(v) ? v : fallback;
 
 /** Finish the welcome wizard — writes the first real settings and opens the app. */
 export async function completeOnboardingAction(input: OnboardingInput) {
@@ -319,9 +328,7 @@ export async function completeOnboardingAction(input: OnboardingInput) {
     priceMoveAlerts: !!n.priceMoveAlerts,
     betResultAlerts: !!n.betResultAlerts,
     weeklyReport: !!n.weeklyReport,
-    theme: oneOf(THEMES, input.theme, "dark"),
-    accent: oneOf(ACCENTS, input.accent, "emerald"),
-    displayFont: oneOf(FONTS, input.displayFont, "grotesk"),
+    ...sanitizeAppearance(input),
     onboardingComplete: true,
   });
 

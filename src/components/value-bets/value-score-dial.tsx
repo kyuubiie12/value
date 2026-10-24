@@ -9,7 +9,7 @@ const TONE: Record<
     from: "var(--primary)",
     to: "var(--primary-strong)",
     text: "text-primary-strong",
-    glow: "rgba(31,206,144,0.35)",
+    glow: "color-mix(in oklab, var(--color-primary) 38%, transparent)",
   },
   positive: {
     from: "var(--positive)",
@@ -69,7 +69,7 @@ export function ValueScoreDial({
             strokeLinecap="round"
             strokeDasharray={c}
             strokeDashoffset={c * (1 - score / 100)}
-            style={{ filter: `drop-shadow(0 0 5px ${t.glow})` }}
+            
           />
         </svg>
         <div className="absolute inset-0 grid place-items-center">

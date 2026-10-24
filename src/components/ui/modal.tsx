@@ -48,7 +48,7 @@ export function Modal({
         aria-label={title}
         className={cn(
           "relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden",
-          "rounded-t-[var(--radius-lg)] border border-line-strong bg-bg-elevated sm:rounded-[var(--radius-lg)]",
+          "rounded-t-[var(--radius-lg)] border border-line-strong/70 bg-bg-elevated shadow-[var(--shadow-pop)] sm:rounded-[var(--radius-lg)]",
           "shadow-[var(--shadow-pop)]",
           className,
         )}

@@ -14,7 +14,7 @@ export function ToggleChip({
       type="button"
       aria-pressed={active}
       className={cn(
-        "inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] border px-2.5 py-1 text-xs font-medium",
+        "glow-hover inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
         "transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
         active
           ? "border-primary/40 bg-primary/12 text-primary-strong"

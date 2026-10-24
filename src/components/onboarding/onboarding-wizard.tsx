@@ -6,19 +6,11 @@ import {
   ArrowRight,
   Check,
   Loader2,
-  Monitor,
-  Moon,
   Sparkles,
-  Sun,
 } from "lucide-react";
-import type {
-  AccentColor,
-  Bookmaker,
-  Currency,
-  DisplayFont,
-  League,
-  ThemeMode,
-} from "@/types";
+import type { Bookmaker, Currency, League } from "@/types";
+import { applyAppearance, type AppearanceValues } from "@/lib/appearance";
+import { AppearancePanel } from "@/components/profile/appearance-panel";
 import { completeOnboardingAction } from "@/lib/actions";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -49,27 +41,6 @@ const RISK_OPTIONS: { value: Risk; label: string; desc: string }[] = [
     label: "Aggressiv",
     desc: "Større indsatser, større udsving. ½ Kelly.",
   },
-];
-
-const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Moon }[] = [
-  { value: "dark", label: "Mørk", icon: Moon },
-  { value: "light", label: "Lys", icon: Sun },
-  { value: "system", label: "System", icon: Monitor },
-];
-
-const ACCENT_OPTIONS: { value: AccentColor; label: string; dot: string }[] = [
-  { value: "emerald", label: "Smaragd", dot: "#1fce90" },
-  { value: "blue", label: "Blå", dot: "#4098f5" },
-  { value: "violet", label: "Violet", dot: "#9a7bf0" },
-  { value: "amber", label: "Rav", dot: "#eaa93c" },
-];
-
-const FONT_OPTIONS: { value: DisplayFont; label: string; family: string }[] = [
-  { value: "grotesk", label: "Moderne", family: "var(--font-grotesk)" },
-  { value: "oswald", label: "Stadion", family: "var(--font-oswald)" },
-  { value: "teko", label: "Måltavle", family: "var(--font-teko)" },
-  { value: "rajdhani", label: "Turbo", family: "var(--font-rajdhani)" },
-  { value: "anton", label: "Mesterskab", family: "var(--font-anton)" },
 ];
 
 const NOTIF_OPTIONS: {
@@ -109,16 +80,6 @@ const STEPS = [
   "Udseende",
 ] as const;
 
-const root = () =>
-  typeof document !== "undefined" ? document.documentElement : null;
-
-const resolveTheme = (t: ThemeMode): "dark" | "light" =>
-  t === "system"
-    ? window.matchMedia("(prefers-color-scheme: light)").matches
-      ? "light"
-      : "dark"
-    : t;
-
 export function OnboardingWizard({
   firstName,
   bookmakers,
@@ -132,9 +93,7 @@ export function OnboardingWizard({
     bankroll: number;
     currency: Currency;
     autoFollowMinEdge: number;
-    theme: ThemeMode;
-    accent: AccentColor;
-    displayFont: DisplayFont;
+    appearance: AppearanceValues;
   };
 }) {
   const [step, setStep] = React.useState(0);
@@ -155,24 +114,17 @@ export function OnboardingWizard({
     betResultAlerts: true,
     weeklyReport: true,
   });
-  const [theme, setTheme] = React.useState<ThemeMode>(defaults.theme);
-  const [accent, setAccent] = React.useState<AccentColor>(defaults.accent);
-  const [font, setFont] = React.useState<DisplayFont>(defaults.displayFont);
+  const [appearance, setAppearanceState] = React.useState<AppearanceValues>(
+    defaults.appearance,
+  );
 
   const toggle = (arr: string[], id: string) =>
     arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
-  const pickTheme = (v: ThemeMode) => {
-    setTheme(v);
-    root()?.setAttribute("data-theme", resolveTheme(v));
-  };
-  const pickAccent = (v: AccentColor) => {
-    setAccent(v);
-    root()?.setAttribute("data-accent", v);
-  };
-  const pickFont = (v: DisplayFont) => {
-    setFont(v);
-    root()?.setAttribute("data-display-font", v);
+  // Previews live across the whole page as options are picked.
+  const setAppearance = (patch: Partial<AppearanceValues>) => {
+    setAppearanceState((a) => ({ ...a, ...patch }));
+    applyAppearance(patch);
   };
 
   const canNext =
@@ -185,11 +137,7 @@ export function OnboardingWizard({
   const finish = () => {
     // Persist appearance to localStorage so the boot script picks it up on the
     // very next page load, before ThemeSync mounts — no flash.
-    try {
-      localStorage.setItem("vb-theme", theme);
-      localStorage.setItem("vb-accent", accent);
-      localStorage.setItem("vb-font", font);
-    } catch {}
+    applyAppearance(appearance, { persist: true });
     startTransition(() => {
       void completeOnboardingAction({
         bankroll,
@@ -200,9 +148,7 @@ export function OnboardingWizard({
         autoFollow,
         autoFollowMinEdge: autoFollowPct / 100,
         notifications: notif,
-        theme,
-        accent,
-        displayFont: font,
+        ...appearance,
       });
     });
   };
@@ -454,113 +400,7 @@ export function OnboardingWizard({
             title="Og til sidst — hvordan skal den se ud?"
             subtitle="Vises med det samme. Alt kan skiftes igen under Profil → Udseende."
           >
-            <div>
-              <FieldLabel>Tema</FieldLabel>
-              <div className="grid grid-cols-3 gap-2">
-                {THEME_OPTIONS.map((t) => {
-                  const on = theme === t.value;
-                  const Icon = t.icon;
-                  return (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => pickTheme(t.value)}
-                      className={cn(
-                        "flex flex-col items-center gap-2 rounded-[var(--radius-sm)] border px-2 py-3 transition-colors",
-                        on
-                          ? "border-primary/45 bg-primary/[0.07]"
-                          : "border-line bg-surface-2/40 hover:border-line-strong",
-                      )}
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "grid size-9 place-items-center rounded-[8px] ring-1 ring-inset ring-line-strong",
-                          t.value === "dark"
-                            ? "bg-[#0e131d] text-[#4ee7b0]"
-                            : t.value === "light"
-                              ? "bg-white text-[#0e9c6c]"
-                              : "bg-gradient-to-br from-[#0e131d] to-white text-fg",
-                        )}
-                      >
-                        <Icon className="size-4" strokeWidth={2} />
-                      </span>
-                      <span className="flex items-center gap-1 text-[12px] font-medium text-fg">
-                        {t.label}
-                        {on && (
-                          <Check
-                            className="size-3.5 text-primary-strong"
-                            strokeWidth={3}
-                          />
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <FieldLabel>Accentfarve</FieldLabel>
-              <div className="flex flex-wrap gap-2.5">
-                {ACCENT_OPTIONS.map((a) => {
-                  const on = accent === a.value;
-                  return (
-                    <button
-                      key={a.value}
-                      type="button"
-                      onClick={() => pickAccent(a.value)}
-                      aria-label={a.label}
-                      className={cn(
-                        "flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3 text-[12px] font-medium transition-colors",
-                        on
-                          ? "border-primary/50 bg-primary/[0.08] text-fg"
-                          : "border-line bg-surface-2/40 text-muted hover:border-line-strong hover:text-fg",
-                      )}
-                    >
-                      <span
-                        aria-hidden
-                        className="grid size-6 place-items-center rounded-full ring-1 ring-inset ring-black/10"
-                        style={{ backgroundColor: a.dot }}
-                      >
-                        {on && (
-                          <Check
-                            className="size-3.5 text-white"
-                            strokeWidth={3}
-                          />
-                        )}
-                      </span>
-                      {a.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <FieldLabel>Skrifttype</FieldLabel>
-              <div className="flex flex-wrap gap-2">
-                {FONT_OPTIONS.map((f) => {
-                  const on = font === f.value;
-                  return (
-                    <button
-                      key={f.value}
-                      type="button"
-                      onClick={() => pickFont(f.value)}
-                      style={{ fontFamily: f.family }}
-                      className={cn(
-                        "rounded-[var(--radius-sm)] border px-3 py-2 text-[15px] font-semibold uppercase tracking-wide transition-colors",
-                        on
-                          ? "border-primary/45 bg-primary/[0.07] text-fg"
-                          : "border-line bg-surface-2/40 text-muted hover:border-line-strong hover:text-fg",
-                      )}
-                    >
-                      {f.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <AppearancePanel value={appearance} onChange={setAppearance} />
           </Step>
         )}
       </div>
@@ -626,14 +466,6 @@ function Step({
       </div>
       {children}
     </div>
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-subtle">
-      {children}
-    </span>
   );
 }
 

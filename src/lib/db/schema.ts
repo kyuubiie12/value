@@ -17,6 +17,8 @@ export const users = sqliteTable("users", {
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
   createdAt: text("created_at").notNull(), // ISO
+  /** Stamped on every login/signup — drives "sidst logget ind" in the admin overview. */
+  lastLoginAt: text("last_login_at"), // ISO, null for accounts that predate the column
 });
 
 export const sessions = sqliteTable("sessions", {
@@ -105,6 +107,20 @@ export const notificationReads = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.notificationId] })],
 );
+
+/**
+ * Login throttle. Persisted (not in-memory) because Vercel's serverless
+ * runtime doesn't share process memory across concurrent/cold-started
+ * invocations — an in-memory `Map` here would let attackers (or a confused
+ * user retrying) blow past the limit simply by getting routed to a fresh
+ * instance. Keyed by "<email>|<ip>"; one row per active 15-minute window,
+ * pruned lazily by the code that reads it.
+ */
+export const loginAttempts = sqliteTable("login_attempts", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  firstAt: integer("first_at").notNull(), // epoch ms
+});
 
 export type UserRow = typeof users.$inferSelect;
 export type BetRow = typeof bets.$inferSelect;

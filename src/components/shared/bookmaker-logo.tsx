@@ -34,9 +34,9 @@ const BRANDS: Record<string, Brand> = {
 };
 
 const SIZE = {
-  sm: { h: "h-6", bare: "max-h-[18px]", tile: "size-6 rounded-[6px] p-1", word: "px-1.5 text-[10px]" },
-  md: { h: "h-8", bare: "max-h-[24px]", tile: "size-8 rounded-[8px] p-1.5", word: "px-2 text-[12px]" },
-  lg: { h: "h-11", bare: "max-h-[34px]", tile: "size-11 rounded-[10px] p-2", word: "px-3 text-[15px]" },
+  sm: { h: "h-6", bare: "max-h-[18px]", tile: "size-6 rounded-[8px] p-1", word: "px-1.5 text-[10px]" },
+  md: { h: "h-8", bare: "max-h-[24px]", tile: "size-8 rounded-[10px] p-1.5", word: "px-2 text-[12px]" },
+  lg: { h: "h-11", bare: "max-h-[34px]", tile: "size-11 rounded-[14px] p-2", word: "px-3 text-[15px]" },
 } as const;
 
 function logoSrc(
@@ -113,7 +113,7 @@ export function BookmakerLogo({
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_1px_2px_rgba(0,0,0,0.4)]",
         s.h,
         s.word,
-        size === "sm" ? "rounded-[6px]" : size === "md" ? "rounded-[8px]" : "rounded-[10px]",
+        size === "sm" ? "rounded-[8px]" : size === "md" ? "rounded-[10px]" : "rounded-[14px]",
         className,
       )}
       style={{

@@ -1,48 +1,73 @@
 import "server-only";
+import { eq } from "drizzle-orm";
+import { db, dbReady } from "@/lib/db";
+import { loginAttempts } from "@/lib/db/schema";
 
 /**
- * In-memory login throttle. Per process, so it resets on restart and doesn't
- * span multiple instances — fine for this app's scale. Keyed by email+client so
- * one attacker can't lock a victim out by spamming their address from elsewhere.
+ * Login throttle, persisted in the DB rather than in-memory — Vercel's
+ * serverless runtime doesn't share process memory across concurrent or
+ * cold-started invocations, so an in-memory `Map` here would effectively
+ * never trigger in production (each attempt can land on a fresh instance
+ * with an empty Map). Keyed by email+client so one attacker can't lock a
+ * victim out by spamming their address from elsewhere.
  */
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
-
-const buckets = new Map<string, { count: number; first: number }>();
 
 export interface ThrottleState {
   blocked: boolean;
   retryInMinutes: number;
 }
 
-export function checkLoginThrottle(key: string): ThrottleState {
-  const b = buckets.get(key);
-  if (!b) return { blocked: false, retryInMinutes: 0 };
-  if (Date.now() - b.first > WINDOW_MS) {
-    buckets.delete(key);
+export async function checkLoginThrottle(key: string): Promise<ThrottleState> {
+  await dbReady;
+  const row = await db
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.key, key))
+    .get();
+  if (!row) return { blocked: false, retryInMinutes: 0 };
+
+  if (Date.now() - row.firstAt > WINDOW_MS) {
+    // Window expired — drop the stale row rather than leaving it to rot.
+    await db.delete(loginAttempts).where(eq(loginAttempts.key, key));
     return { blocked: false, retryInMinutes: 0 };
   }
-  if (b.count >= MAX_ATTEMPTS) {
+
+  if (row.count >= MAX_ATTEMPTS) {
     return {
       blocked: true,
       retryInMinutes: Math.max(
         1,
-        Math.ceil((b.first + WINDOW_MS - Date.now()) / 60_000),
+        Math.ceil((row.firstAt + WINDOW_MS - Date.now()) / 60_000),
       ),
     };
   }
   return { blocked: false, retryInMinutes: 0 };
 }
 
-export function recordLoginFailure(key: string): void {
-  const b = buckets.get(key);
-  if (!b || Date.now() - b.first > WINDOW_MS) {
-    buckets.set(key, { count: 1, first: Date.now() });
+export async function recordLoginFailure(key: string): Promise<void> {
+  await dbReady;
+  const row = await db
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.key, key))
+    .get();
+
+  if (!row || Date.now() - row.firstAt > WINDOW_MS) {
+    // libSQL doesn't need a manual upsert dance for a fresh window: delete
+    // any stale row first (no-op if none), then insert clean.
+    await db.delete(loginAttempts).where(eq(loginAttempts.key, key));
+    await db.insert(loginAttempts).values({ key, count: 1, firstAt: Date.now() });
   } else {
-    b.count += 1;
+    await db
+      .update(loginAttempts)
+      .set({ count: row.count + 1 })
+      .where(eq(loginAttempts.key, key));
   }
 }
 
-export function clearLoginThrottle(key: string): void {
-  buckets.delete(key);
+export async function clearLoginThrottle(key: string): Promise<void> {
+  await dbReady;
+  await db.delete(loginAttempts).where(eq(loginAttempts.key, key));
 }

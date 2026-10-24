@@ -20,8 +20,8 @@ export function BrandMark({
       <span
         aria-hidden
         className={cn(
-          "grid shrink-0 place-items-center rounded-[8px] bg-primary text-primary-contrast",
-          "shadow-[0_5px_16px_-6px_rgba(16,185,129,0.5)]",
+          "grid shrink-0 place-items-center rounded-[10px] bg-primary text-primary-contrast",
+          "shadow-[var(--shadow-sm)]",
           tile,
         )}
       >

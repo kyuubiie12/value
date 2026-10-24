@@ -230,7 +230,7 @@ export function ValueBetCard({
             onClick={quickToggle}
             disabled={trackPending}
             aria-label="Tilføj til mine spil"
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-[var(--radius-sm)] px-2 py-1 text-[11px] font-semibold text-primary-strong transition-colors hover:bg-primary/12 disabled:opacity-50"
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-semibold text-primary-strong transition-colors hover:bg-primary/18 disabled:opacity-50"
           >
             {trackPending ? (
               <Loader2 className="size-3 animate-spin" />

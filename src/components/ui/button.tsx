@@ -15,10 +15,10 @@ const VARIANTS: Record<Variant, string> = {
 };
 
 const SIZES: Record<Size, string> = {
-  sm: "h-8 px-3 text-xs gap-1.5 rounded-[var(--radius-sm)]",
-  md: "h-9 px-4 text-[13px] gap-2 rounded-[var(--radius-sm)]",
-  lg: "h-11 px-5 text-sm gap-2 rounded-[var(--radius)]",
-  icon: "size-9 rounded-[var(--radius-sm)]",
+  sm: "h-8 px-3.5 text-xs gap-1.5 rounded-full",
+  md: "h-9 px-4.5 text-[13px] gap-2 rounded-full",
+  lg: "h-11 px-6 text-sm gap-2 rounded-full",
+  icon: "size-9 rounded-full",
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -36,7 +36,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center font-medium",
+        "glow-hover inline-flex cursor-pointer items-center justify-center font-medium",
         "transition-[background-color,border-color,color,transform] duration-150 outline-none",
         "active:translate-y-px",
         "focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg",

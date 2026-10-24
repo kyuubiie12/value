@@ -8,7 +8,7 @@ export function TableWrap({
   return (
     <div
       className={cn(
-        "w-full overflow-x-auto rounded-card border border-line/80 bg-surface",
+        "w-full overflow-x-auto spot rounded-card border border-line/60 bg-surface shadow-[var(--shadow-card)]",
         className,
       )}
       {...props}

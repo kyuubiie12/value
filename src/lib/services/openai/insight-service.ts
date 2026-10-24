@@ -21,6 +21,7 @@ interface PromptInput {
   openingOdds: number;
   booksCount: number;
   kellyPercent: number;
+  knownSignals: string[];
 }
 
 function buildInput(o: ValueOpportunity): PromptInput {
@@ -40,19 +41,32 @@ function buildInput(o: ValueOpportunity): PromptInput {
     openingOdds: o.openingOdds,
     booksCount: o.booksCount,
     kellyPercent: Number((o.kellyFraction * 100).toFixed(1)),
+    // Stats our scanner already pulled for this fixture — per-team averages,
+    // head-to-head figures, etc. These are the actual numeric justification
+    // for niche markets (corners/cards/ht-ft), so the model must ground its
+    // analysis in them rather than inventing its own generic reasoning.
+    knownSignals: o.signals,
   };
 }
 
 const SYSTEM = `Du er en erfaren fodbold-oddsanalytiker for et value-betting værktøj.
 Du får strukturerede tal for ét value bet (bedste odds vs. de-vigget fair odds,
-markedsbevægelse, form). Skriv en kort, nøgtern vurdering på dansk.
+markedsbevægelse, form) samt "knownSignals": konkrete datapunkter vores scanner
+allerede har fundet for kampen (fx hvert holds eget gennemsnit for et niche-marked
+som hjørnespark/kort, og det indbyrdes gennemsnit mellem de to hold). Skriv en
+kort, nøgtern vurdering på dansk.
 
 Regler:
-- 3 til 4 "signals": korte punkter (max ~9 ord), konkrete, ingen fyld.
+- 3 til 4 "signals": korte punkter (max ~12 ord), konkrete, ingen fyld.
+- knownSignals er din PRIMÆRE kilde — behold de konkrete tal i dem (holdenes
+  egne gennemsnit og det indbyrdes gennemsnit), men du må omformulere/forkorte.
+  Drop aldrig en talværdi fra knownSignals for at gøre plads til noget vagere.
+- Har knownSignals færre end 3 punkter, kan du tilføje almindelig
+  fodboldkontekst ud fra de øvrige tal (odds, form, bevægelse) — men opfind
+  aldrig nye skader, resultater eller statistikker der ikke er givet.
 - "summary": 1-2 sætninger i klar tale om hvorfor der er value her.
 - Vær ærlig: hvis edgenden er lille eller prisen driver, så sig det.
 - Ingen ansvarsfraskrivelser, ingen "spil ansvarligt", ingen emojis.
-- Brug KUN de givne tal + almindelig fodboldkontekst. Opfind ikke skader/resultater.
 Svar som JSON: {"signals": string[], "summary": string}`;
 
 async function callOpenAI(input: PromptInput): Promise<OpportunityInsight | null> {

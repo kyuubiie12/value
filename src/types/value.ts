@@ -56,6 +56,12 @@ export interface ValueOpportunity {
   confidence: Confidence;
   /** Short, human-readable reasons the model flagged this. */
   signals: string[];
+  /**
+   * Structured backing data for counting-stat markets (corners, cards) —
+   * the concrete numbers behind the line, not just prose. Undefined for
+   * markets without a natural "average per game" stat (1x2, btts, …).
+   */
+  statContext?: MarketStatContext;
 
   /** Every price we saw for this selection. */
   quotes: OddsQuote[];
@@ -64,6 +70,28 @@ export interface ValueOpportunity {
 
   detectedAt: string; // ISO
   read: boolean;
+}
+
+/**
+ * Per-fixture stats for a counting market: each team's own average for the
+ * stat, the head-to-head average when these two teams have met, and the
+ * line the opportunity is priced on — the numeric justification for the
+ * pick, e.g. "AGF henter 4,6 hjørnespark hjemme, FCK afgiver 6,3 ude,
+ * indbyrdes snit 11,2 over 4 kampe — linjen er 9.5."
+ */
+export interface MarketStatContext {
+  /** e.g. "hjørnespark", "kort". */
+  metric: string;
+  /** Home team's own average for this stat in their matches. */
+  homeAvg: number;
+  /** Away team's own average for this stat in their matches. */
+  awayAvg: number;
+  /** Average combined total across their head-to-head meetings. */
+  h2hAvg: number;
+  /** Sample size behind h2hAvg. */
+  h2hMatches: number;
+  /** The over/under line this opportunity is priced on. */
+  line: number;
 }
 
 export interface ValueFilters {

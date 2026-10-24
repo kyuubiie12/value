@@ -20,9 +20,15 @@ export default async function OnboardingPage() {
         bankroll: settings.startingBankroll,
         currency: settings.currency,
         autoFollowMinEdge: settings.autoFollowMinEdge,
-        theme: settings.theme,
-        accent: settings.accent,
-        displayFont: settings.displayFont,
+        appearance: {
+          theme: settings.theme,
+          accent: settings.accent,
+          displayFont: settings.displayFont,
+          surface: settings.surface,
+          corners: settings.corners,
+          glow: settings.glow,
+          animations: settings.animations,
+        },
       }}
     />
   );

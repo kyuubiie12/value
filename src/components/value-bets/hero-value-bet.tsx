@@ -37,25 +37,12 @@ export function HeroValueBet({
       type="button"
       onClick={() => onOpen(o)}
       className={cn(
-        "group relative w-full overflow-hidden rounded-card-lg border border-primary/20 bg-surface p-5 text-left outline-none sm:p-6",
+        "spot group relative w-full overflow-hidden [&::after]:inset-0 rounded-card-lg border border-primary/20 bg-surface p-5 text-left outline-none sm:p-6",
         "transition-[border-color,box-shadow] duration-200",
-        "hover:border-primary/40 hover:shadow-[0_22px_54px_-30px_rgba(31,206,144,0.5)]",
+        "hover:border-primary/40 hover:shadow-[var(--shadow-md)]",
         "focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/35",
       )}
     >
-      {/* Backdrop — one focused light + a faint scan grid */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -right-24 -top-28 size-72 rounded-full bg-primary/12 blur-[90px]" />
-        <div
-          className="absolute inset-0 opacity-[0.4] [mask-image:radial-gradient(130%_130%_at_100%_0%,black,transparent_62%)]"
-          style={{
-            backgroundImage:
-              "linear-gradient(var(--color-line) 1px, transparent 1px), linear-gradient(90deg, var(--color-line) 1px, transparent 1px)",
-            backgroundSize: "34px 34px",
-          }}
-        />
-      </div>
-
       <div className="relative grid gap-5 sm:grid-cols-[1fr_auto] sm:gap-7">
         {/* Left — the story */}
         <div className="flex min-w-0 flex-col gap-4">
@@ -119,7 +106,7 @@ export function HeroValueBet({
         </div>
 
         {/* Right — the readout panel */}
-        <div className="flex flex-col justify-between gap-5 border-t border-line pt-5 sm:min-w-[210px] sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+        <div className="flex flex-col justify-between gap-5 rounded-card bg-bg/45 p-4 ring-1 ring-inset ring-line/50 sm:min-w-[220px] sm:p-5">
           <div className="hidden items-center gap-3 sm:flex">
             <ValueScoreDial score={score} size={58} showLabel={false} />
             <div>

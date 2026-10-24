@@ -28,6 +28,10 @@ export async function createSession(userId: string): Promise<void> {
   await db
     .insert(sessions)
     .values({ id: tokenId(token), userId, expiresAt, createdAt: now });
+  await db
+    .update(users)
+    .set({ lastLoginAt: new Date(now).toISOString() })
+    .where(eq(users.id, userId));
 
   const jar = await cookies();
   jar.set(COOKIE, token, {

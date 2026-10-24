@@ -13,7 +13,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       <select
         ref={ref}
         className={cn(
-          "h-9 w-full cursor-pointer appearance-none rounded-[var(--radius-sm)] border border-line bg-bg pl-3 pr-9 text-[13px] text-fg",
+          "h-10 w-full cursor-pointer appearance-none rounded-[var(--radius-sm)] border border-line/80 bg-bg pl-3.5 pr-9 text-[13px] text-fg",
           "transition-colors duration-150 outline-none hover:border-line-strong",
           "focus-visible:border-primary/70 focus-visible:ring-2 focus-visible:ring-ring/25",
           "disabled:cursor-not-allowed disabled:opacity-50",

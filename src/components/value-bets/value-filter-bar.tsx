@@ -88,12 +88,12 @@ export function ValueFilterBar({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-subtle" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-1/2 text-subtle" />
           <Input
             value={filters.search ?? ""}
             onChange={(e) => patch({ search: e.target.value })}
             placeholder="Søg hold, liga eller udfald…"
-            className="pl-[34px]"
+            className="h-10 rounded-full pl-10"
             aria-label="Søg i value bets"
           />
         </div>
@@ -103,13 +103,13 @@ export function ValueFilterBar({
             onChange={(e) => patch({ sort: e.target.value as ValueSort })}
             options={SORT_OPTIONS}
             aria-label="Sortér"
-            className="w-[168px]"
+            className="h-10 w-[176px] rounded-full pl-4"
           />
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
             aria-pressed={showMore}
-            className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] border border-line bg-surface-2 px-2.5 text-xs font-medium text-muted transition-colors hover:border-line-strong hover:text-fg"
+            className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line/70 bg-surface-2 px-4 text-xs font-medium text-muted transition-colors hover:border-line-strong hover:text-fg"
           >
             <SlidersHorizontal className="size-3.5" />
             Filtre
@@ -123,7 +123,7 @@ export function ValueFilterBar({
       </div>
 
       {showMore && (
-        <div className="grid gap-4 rounded-card border border-line bg-surface p-4 sm:grid-cols-2">
+        <div className="grid gap-5 rounded-card border border-line/60 bg-surface p-5 shadow-[var(--shadow-card)] sm:grid-cols-2">
           <FilterGroup label="Ligaer" className="sm:col-span-2">
             <div className="flex flex-wrap gap-1.5">
               {leagues.map((l) => (
@@ -269,17 +269,18 @@ function ActiveChip({
   children,
   onRemove,
 }: {
-  children: React.ReactNode;
+  children: string;
   onRemove: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onRemove}
+      aria-label={`Fjern filter: ${children}`}
       className="group inline-flex cursor-pointer items-center gap-1 rounded-full bg-primary/12 py-0.5 pl-2.5 pr-1.5 text-[11px] font-medium text-primary-strong transition-colors hover:bg-primary/20"
     >
       {children}
-      <X className="size-3 text-primary-strong/60 transition-colors group-hover:text-primary-strong" />
+      <X className="size-3 text-primary-strong/60 transition-colors group-hover:text-primary-strong" aria-hidden />
     </button>
   );
 }

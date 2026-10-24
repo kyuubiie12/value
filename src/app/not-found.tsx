@@ -7,7 +7,7 @@ export default function NotFound() {
       <div className="pointer-events-none absolute -top-24 left-1/2 size-72 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
 
       <div className="relative flex flex-col items-center gap-5">
-        <span className="grid size-12 place-items-center rounded-[12px] bg-primary text-primary-contrast shadow-[0_10px_30px_-10px_rgba(31,206,144,0.6)]">
+        <span className="grid size-12 place-items-center rounded-[16px] bg-primary text-primary-contrast shadow-[var(--shadow-md)]">
           <Compass className="size-6" strokeWidth={2} aria-hidden />
         </span>
 
