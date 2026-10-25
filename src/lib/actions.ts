@@ -50,11 +50,8 @@ export async function markOpportunityReadAction(id: string) {
 export async function analyseOpportunityAction(id: string) {
   const opportunity = await valueService.getOpportunity(id);
   if (!opportunity) return null;
-  const [insight, marketPerformance] = await Promise.all([
-    insightService.analyse(opportunity),
-    trackRecordService.getMarketPerformance(opportunity.market),
-  ]);
-  return { insight, marketPerformance };
+  const insight = await insightService.analyse(opportunity);
+  return { insight };
 }
 
 /** Historical track-record performance for one market — social proof on a pick. */

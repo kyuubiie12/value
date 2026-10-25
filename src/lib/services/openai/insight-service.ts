@@ -1,73 +1,66 @@
 import { unstable_cache } from "next/cache";
 import type { ValueOpportunity } from "@/types";
+import { explainOpportunity } from "@/lib/explain";
+import { getBookmaker } from "@/lib/mock-data";
 import { createMockInsightService } from "../mock/insight-service";
 import type { InsightService, OpportunityInsight } from "../types";
 
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";
 
 interface PromptInput {
+  match: string;
   league: string;
-  home: string;
-  away: string;
-  homeForm: string;
-  awayForm: string;
   market: string;
   selection: string;
   bestOdds: number;
+  bestBookmaker: string;
   fairOdds: number;
-  averageOdds: number;
+  /** "sharp": Pinnacle without margin. "consensus": the other bookmakers' average. */
+  fairBasis: "sharp" | "consensus";
   edgePercent: number;
+  prices: { bookmaker: string; odds: number }[];
   movement: string;
-  openingOdds: number;
-  booksCount: number;
-  kellyPercent: number;
-  knownSignals: string[];
+  facts: string[];
+  caveat: string;
 }
 
 function buildInput(o: ValueOpportunity): PromptInput {
+  const e = explainOpportunity(o);
   return {
+    match: `${o.homeTeam} – ${o.awayTeam}`,
     league: o.league,
-    home: o.homeTeam,
-    away: o.awayTeam,
-    homeForm: o.homeForm,
-    awayForm: o.awayForm,
     market: o.marketLabel,
     selection: o.selection,
     bestOdds: o.bestOdds,
+    bestBookmaker: getBookmaker(o.bestBookmakerId)?.name ?? o.bestBookmakerId,
     fairOdds: o.fairOdds,
-    averageOdds: o.averageOdds,
-    edgePercent: Number((o.edgePercent).toFixed(1)),
+    fairBasis: o.fairBasis ?? "sharp",
+    edgePercent: Number(o.edgePercent.toFixed(1)),
+    prices: o.quotes.map((q) => ({
+      bookmaker: getBookmaker(q.bookmakerId)?.name ?? q.bookmakerId,
+      odds: q.price,
+    })),
     movement: o.priceMovement,
-    openingOdds: o.openingOdds,
-    booksCount: o.booksCount,
-    kellyPercent: Number((o.kellyFraction * 100).toFixed(1)),
-    // Stats our scanner already pulled for this fixture — per-team averages,
-    // head-to-head figures, etc. These are the actual numeric justification
-    // for niche markets (corners/cards/ht-ft), so the model must ground its
-    // analysis in them rather than inventing its own generic reasoning.
-    knownSignals: o.signals,
+    facts: e.points,
+    caveat: e.caveat,
   };
 }
 
-const SYSTEM = `Du er en erfaren fodbold-oddsanalytiker for et value-betting værktøj.
-Du får strukturerede tal for ét value bet (bedste odds vs. de-vigget fair odds,
-markedsbevægelse, form) samt "knownSignals": konkrete datapunkter vores scanner
-allerede har fundet for kampen (fx hvert holds eget gennemsnit for et niche-marked
-som hjørnespark/kort, og det indbyrdes gennemsnit mellem de to hold). Skriv en
-kort, nøgtern vurdering på dansk.
+const SYSTEM = `Du forklarer en bruger, hvorfor ét fodbold-bet er et value bet, så brugeren
+kan se logikken og stole på den. Skriv på dansk, i klart sprog, 2 til 4 sætninger.
 
+Du får tal og "facts" fra vores system. Brug KUN dem.
 Regler:
-- 3 til 4 "signals": korte punkter (max ~12 ord), konkrete, ingen fyld.
-- knownSignals er din PRIMÆRE kilde — behold de konkrete tal i dem (holdenes
-  egne gennemsnit og det indbyrdes gennemsnit), men du må omformulere/forkorte.
-  Drop aldrig en talværdi fra knownSignals for at gøre plads til noget vagere.
-- Har knownSignals færre end 3 punkter, kan du tilføje almindelig
-  fodboldkontekst ud fra de øvrige tal (odds, form, bevægelse) — men opfind
-  aldrig nye skader, resultater eller statistikker der ikke er givet.
-- "summary": 1-2 sætninger i klar tale om hvorfor der er value her.
-- Vær ærlig: hvis edgenden er lille eller prisen driver, så sig det.
-- Ingen ansvarsfraskrivelser, ingen "spil ansvarligt", ingen emojis.
-Svar som JSON: {"signals": string[], "summary": string}`;
+- Opfind aldrig skader, form, statistik, spillestil, tidligere resultater eller andet,
+  der ikke står i data. Du kender ikke noget til holdene ud over tallene.
+- Forklar mekanismen: hvilken pris er højere end hvad, hvor stor forskellen er,
+  og hvad det betyder for den forventede gevinst på sigt.
+- Er fairBasis "consensus", så sig ærligt, at det er en prisforskel mellem
+  bookmakere uden en skarp reference — ikke et bevis. Er det "sharp", så forklar,
+  at fair odds er den skarpe bookmakers pris uden margin.
+- Vær ærlig om usikkerheden: value er ikke en garanti for, at det vinder.
+- Ingen "spil ansvarligt", ingen emojis, ingen overskrifter, ingen opremsning.
+Svar som JSON: {"summary": string}`;
 
 async function callOpenAI(input: PromptInput): Promise<OpportunityInsight | null> {
   const key = process.env.OPENAI_API_KEY;
@@ -86,13 +79,13 @@ async function callOpenAI(input: PromptInput): Promise<OpportunityInsight | null
       body: JSON.stringify({
         model,
         temperature: 0.4,
-        max_tokens: 320,
+        max_tokens: 260,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
           {
             role: "user",
-            content: `Fodbold value bet — analysér.\n\nData:\n${JSON.stringify(input, null, 2)}`,
+            content: `Forklar dette value bet.\n\nData:\n${JSON.stringify(input, null, 2)}`,
           },
         ],
       }),
@@ -108,17 +101,11 @@ async function callOpenAI(input: PromptInput): Promise<OpportunityInsight | null
     const content = json.choices?.[0]?.message?.content;
     if (!content) return null;
 
-    const parsed = JSON.parse(content) as {
-      signals?: unknown;
-      summary?: unknown;
-    };
-    const signals = Array.isArray(parsed.signals)
-      ? parsed.signals.filter((s): s is string => typeof s === "string").slice(0, 4)
-      : [];
-    const summary = typeof parsed.summary === "string" ? parsed.summary : "";
-    if (!signals.length || !summary) return null;
+    const parsed = JSON.parse(content) as { summary?: unknown };
+    const summary = typeof parsed.summary === "string" ? parsed.summary.trim() : "";
+    if (!summary) return null;
 
-    return { signals, summary, source: "ai" };
+    return { signals: [], summary, source: "ai" };
   } catch (err) {
     console.error("OpenAI insight error", err);
     return null;

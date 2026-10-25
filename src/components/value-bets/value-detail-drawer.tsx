@@ -9,15 +9,20 @@ import {
   ChartNoAxesCombined,
   Check,
   CircleCheckBig,
+  Loader2,
   Plus,
   Share2,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import type { MarketStatContext, ValueOpportunity } from "@/types";
+import type { OpportunityInsight } from "@/lib/services";
 import { DEFAULT_SETTINGS, getBookmaker } from "@/lib/mock-data";
+import { explainOpportunity } from "@/lib/explain";
 import { fixtureHref } from "@/lib/fixtures";
 import {
+  analyseOpportunityAction,
   markOpportunityReadAction,
   trackOpportunityAction,
   untrackOpportunityAction,
@@ -75,6 +80,8 @@ export function ValueDetailDrawer({
   }, [open, onClose]);
 
   const drawerKey = opportunity?.id ?? null;
+  const [insight, setInsight] = React.useState<OpportunityInsight | null>(null);
+  const [insightLoading, setInsightLoading] = React.useState(false);
   const [isTracked, setIsTracked] = React.useState(tracked);
   const [stakeInput, setStakeInput] = React.useState("");
   const [trackPending, startTrackTransition] = React.useTransition();
@@ -82,6 +89,8 @@ export function ValueDetailDrawer({
   if (drawerKey !== seenKey) {
     setSeenKey(drawerKey);
     setMarkedRead(false);
+    setInsight(null);
+    setInsightLoading(drawerKey !== null);
     setIsTracked(tracked);
     setStakeInput(String(trackedStake ?? DEFAULT_STAKE));
   }
@@ -91,8 +100,25 @@ export function ValueDetailDrawer({
     Math.round(Number(stakeInput.replace(",", ".")) || 0),
   );
 
+  React.useEffect(() => {
+    if (!drawerKey) return;
+    let cancelled = false;
+    analyseOpportunityAction(drawerKey)
+      .then((r) => {
+        if (!cancelled && r) setInsight(r.insight);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setInsightLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [drawerKey]);
+
   if (!open || typeof document === "undefined") return null;
   const o = opportunity;
+  const why = explainOpportunity(o);
 
   const markRead = () => {
     startTransition(async () => {
@@ -232,6 +258,32 @@ export function ValueDetailDrawer({
               size="sm"
               className="mt-3 border-t border-primary/15 pt-3"
             />
+          </div>
+
+          {/* Why this is value — the numbers first, the AI's plain-language take on top */}
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-subtle">
+              <Sparkles className="size-3 text-primary" aria-hidden />
+              Hvorfor er det value?
+              {insightLoading && (
+                <Loader2 className="size-3 animate-spin text-subtle" aria-hidden />
+              )}
+            </p>
+            <p className="text-[14px] font-semibold leading-snug text-fg">{why.headline}</p>
+            {insight?.source === "ai" && insight.summary && (
+              <p className="mt-2 text-[13px] leading-relaxed text-fg">{insight.summary}</p>
+            )}
+            <ul className="mt-3 space-y-2">
+              {why.points.map((p) => (
+                <li key={p} className="flex items-start gap-2 text-[13px] leading-relaxed text-muted">
+                  <span className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
+                  {p}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 rounded-[var(--radius-sm)] bg-surface-2/70 px-3 py-2 text-[12px] leading-relaxed text-subtle">
+              {why.caveat}
+            </p>
           </div>
 
           {/* Spiller du med? — pick a stake, add with the footer button */}
