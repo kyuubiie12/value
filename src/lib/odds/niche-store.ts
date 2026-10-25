@@ -192,6 +192,15 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         opps.sort((x, y) => y.edgePercent - x.edgePercent);
         opps.splice(15);
       }
+      if (candidates.length && !history) {
+        // Player records unavailable right now (allowance / provider hiccup): keep the props we
+        // already proved for this match instead of wiping them, and look again in an hour.
+        await db
+          .update(nicheFixtures)
+          .set({ fetchedAt: new Date(Date.now() - STALE_MS() + 3_600_000).toISOString() })
+          .where(eq(nicheFixtures.fixtureId, f.fixtureId));
+        continue;
+      }
       await db
         .update(nicheFixtures)
         .set({ oppsJson: JSON.stringify(opps), fetchedAt: at })
