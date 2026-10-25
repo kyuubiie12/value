@@ -7,7 +7,7 @@ import type { ValueOpportunity } from "@/types";
  */
 export function valueScore(o: ValueOpportunity): number {
   // A gap between soft books (no sharp reference) counts for half as much as sharp-backed edge.
-  const trust = o.fairBasis === "consensus" ? 0.5 : 1;
+  const trust = o.fairBasis === "consensus" ? 0.5 : o.fairBasis === "history" ? 0.85 : 1;
   const edgePts = Math.min(68, (o.edgePercent / 12) * 68) * trust;
   const confPts = { low: 6, medium: 16, high: 24 }[o.confidence];
   const movePts =

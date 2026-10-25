@@ -50,7 +50,7 @@ export function DataSection({
           </Panel>
         </Group>
 
-        <Group title="Sikkerhed" hint="Hold din adgangskode stærk og unik for ValueBet AI.">
+        <Group title="Sikkerhed" hint="Hold din adgangskode stærk og unik for Mentor.">
           <div className="flex flex-col gap-3">
             <ChangePasswordForm />
             <Panel className="flex flex-wrap items-center gap-4">

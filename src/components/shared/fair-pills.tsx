@@ -20,10 +20,10 @@ export function FairPills({
   const bookEdge = o.averageOdds > 0 ? o.bestOdds / o.averageOdds - 1 : 0;
   const sharpEdge = o.fairOdds > 0 ? o.bestOdds / o.fairOdds - 1 : 0;
 
-  if (o.fairBasis === "consensus") {
+  if (o.fairBasis === "consensus" || o.fairBasis === "history") {
     return (
       <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
-        <Pill label="Vs. andre" value={sharpEdge} tone="book" size={size} />
+        <Pill label={o.fairBasis === "history" ? "Vs. hans kampe" : "Vs. andre"} value={sharpEdge} tone="book" size={size} />
       </div>
     );
   }

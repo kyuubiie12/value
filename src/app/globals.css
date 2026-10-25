@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  ValueBet AI theme.
+  Mentor theme.
   Colours are runtime custom properties so the profile can switch dark/light and
   swap the accent. Dark + emerald is the default (also the SSR fallback).
   `bg-surface`, `text-muted`, `border-line`, `text-positive`, `bg-primary/12` …

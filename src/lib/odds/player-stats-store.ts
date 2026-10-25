@@ -151,3 +151,21 @@ export async function fixtureRoster(
     return null;
   }
 }
+
+/**
+ * The two teams of a fixture as API-Football ids, for the current stats season.
+ * Null when the league/teams can't be resolved (or the season isn't on the plan).
+ */
+export async function resolveFixtureTeams(
+  leagueId: string,
+  homeTeam: string,
+  awayTeam: string,
+): Promise<{ season: number; teamIds: number[] } | null> {
+  const season = statsSeason();
+  const teams = await leagueTeams(leagueId, season);
+  if (!teams) return null;
+  const ids = [homeTeam, awayTeam]
+    .map((name) => matchTeam(name, teams)?.id)
+    .filter((id): id is number => typeof id === "number");
+  return ids.length ? { season, teamIds: ids } : null;
+}

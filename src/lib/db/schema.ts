@@ -2,7 +2,7 @@ import { sqliteTable, text, real, integer, primaryKey } from "drizzle-orm/sqlite
 import type { UserSettings } from "@/types";
 
 /**
- * SQLite schema (Drizzle). This is the persistence layer that turned ValueBet AI
+ * SQLite schema (Drizzle). This is the persistence layer that turned Mentor
  * from a single-user mock into a real multi-user app. Reference data
  * (leagues / bookmakers / value opportunities / track record) stays generated in
  * `src/lib/mock-data` — only per-user state lives here.
@@ -254,6 +254,13 @@ export const notifySeen = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );
+
+/** Every player's line in a finished match — immutable once the match is over, so cached for good. */
+export const matchPlayers = sqliteTable("match_players", {
+  fixtureId: integer("fixture_id").primaryKey(),
+  playersJson: text("players_json").notNull(),
+  fetchedAt: text("fetched_at").notNull(), // ISO
+});
 
 export type UserRow = typeof users.$inferSelect;
 export type BetRow = typeof bets.$inferSelect;

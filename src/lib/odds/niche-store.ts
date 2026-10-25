@@ -4,8 +4,9 @@ import type { ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, playerNames } from "@/lib/db/schema";
 import { LEAGUE_PRIORITY } from "./config";
-import { findPlayer, playerContext } from "./player-model";
-import { fixtureRoster } from "./player-stats-store";
+import { findPlayer } from "./player-model";
+import { fixtureHistory } from "./player-history";
+import { historyContext, isProven, rosterFromHistory } from "./history-model";
 import {
   fetchFixtureNicheOdds,
   fetchNicheMarkets,
@@ -14,13 +15,7 @@ import {
   OddsPapiError,
   TOURNAMENT_LEAGUES,
 } from "./oddspapi";
-import {
-  detectNiche,
-  displayName,
-  finalizeNiche,
-  type NicheCandidate,
-  type NicheMarkets,
-} from "./niche";
+import { displayName, listPropCandidates, proveNiche, type NicheMarkets } from "./niche";
 
 /**
  * Player-prop cache + refresh job (OddsPapi). The plan allowance is small, so
@@ -162,23 +157,27 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
     for (const f of (await pickDue(now)).slice(0, MAX_PER_RUN)) {
       const { odds, remaining } = await fetchFixtureNicheOdds(f.fixtureId);
       const at = new Date().toISOString();
-      const candidates: NicheCandidate[] = detectNiche(f, odds, markets, at);
-      const names = await resolveNames([...new Set(candidates.map((c) => c.playerId))]);
-      // What each player has actually done this season, when the plan lets us read it.
-      const rosterInfo = candidates.length
-        ? await fixtureRoster(f.leagueId, f.homeTeam, f.awayTeam)
-        : null;
+      const candidates = listPropCandidates(f, odds, markets, at);
+
+      // A prop is only shown when the player's own recent matches prove the price too big.
+      // No record (no data access, too few matches) → nothing is shown for him.
       const opps: ValueOpportunity[] = [];
-      for (const c of candidates) {
-        const name = names.get(c.playerId) ?? `Spiller ${c.playerId}`;
-        const player = rosterInfo ? findPlayer(rosterInfo.players, name) : null;
-        const stats =
-          player && rosterInfo
-            ? playerContext(c.category, c.outcomeLabel, player, rosterInfo.season, name, rosterInfo.fromSeason)
-            : null;
-        // His own record says the price is too short for the chance → not a value bet.
-        if (stats && stats.modelProbability < 1 / c.bestOdds) continue;
-        opps.push(finalizeNiche(c, name, stats));
+      const history = candidates.length ? await fixtureHistory(f.leagueId, f.homeTeam, f.awayTeam) : null;
+      if (history) {
+        const names = await resolveNames([...new Set(candidates.map((c) => c.playerId))]);
+        const roster = rosterFromHistory(history.players);
+        const byId = new Map(history.players.map((p) => [p.id, p]));
+        for (const c of candidates) {
+          const name = names.get(c.playerId);
+          if (!name) continue;
+          const hit = findPlayer(roster, name);
+          const player = hit ? byId.get(hit.id) : undefined;
+          if (!player) continue;
+          const ctx = historyContext(c.category, c.outcomeLabel, player.appearances, name, history.season);
+          if (ctx && isProven(ctx, c.bestOdds)) opps.push(proveNiche(c, name, ctx));
+        }
+        opps.sort((x, y) => y.edgePercent - x.edgePercent);
+        opps.splice(15);
       }
       await db
         .update(nicheFixtures)

@@ -15,7 +15,7 @@ export function OddsBoard({
   quotes: OddsQuote[];
   bestBookmakerId: string;
   fairOdds: number;
-  fairBasis?: "sharp" | "consensus";
+  fairBasis?: "sharp" | "consensus" | "history";
 }) {
   const rows = [...quotes].sort((a, b) => b.price - a.price);
 
@@ -74,9 +74,11 @@ export function OddsBoard({
       })}
       <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-t border-line bg-surface-2/60 px-3 py-2 text-[12px]">
         <span className="text-subtle">
-          {fairBasis === "consensus"
-            ? "Gns. af de andre bookmakere"
-            : "Fair odds (de-vigget fra sharp)"}
+          {fairBasis === "history"
+            ? "Fair odds ud fra hans egne kampe"
+            : fairBasis === "consensus"
+              ? "Gns. af de andre bookmakere"
+              : "Fair odds (de-vigget fra sharp)"}
         </span>
         <span className="tabular text-right font-semibold text-fg">
           {formatOdds(fairOdds)}

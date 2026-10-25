@@ -211,7 +211,7 @@ export function PushPanel() {
           <p className="text-[13.5px] font-semibold text-fg">Push-beskeder & app</p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-subtle">
             Få en besked på telefonen eller computeren, selv når siden er lukket. Installér
-            ValueBet AI som app for at få den på hjemmeskærmen.
+            Mentor som app for at få den på hjemmeskærmen.
           </p>
         </div>
         {env.ready && (

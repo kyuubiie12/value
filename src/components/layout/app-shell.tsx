@@ -46,7 +46,7 @@ export function AppShell({
       <footer className="border-t border-line">
         <div className="mx-auto max-w-[1180px] px-4 py-5 sm:px-6 lg:px-10">
           <p className="text-[11px] leading-relaxed text-subtle">
-            ValueBet AI er et analyse- og trackingværktøj. Vi formidler ikke spil
+            Mentor er et analyse- og trackingværktøj. Vi formidler ikke spil
             og placerer ingen væddemål. Spil ansvarligt · 18+
           </p>
         </div>

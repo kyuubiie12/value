@@ -1,4 +1,4 @@
-/* ValueBet AI service worker — keeps the app installable, shows an offline
+/* Mentor service worker — keeps the app installable, shows an offline
    page when a navigation fails, and handles Web Push. It deliberately does NOT
    cache app pages or data: the feed must always be live. */
 const CACHE = "vb-shell-v1";
@@ -38,12 +38,12 @@ self.addEventListener("push", (event) => {
   } catch {
     data = { body: event.data ? event.data.text() : "" };
   }
-  const title = data.title || "ValueBet AI";
+  const title = data.title || "Mentor";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/pwa-icon/192",
-      badge: "/pwa-icon/96",
+      icon: "/brand/icon-192.png",
+      badge: "/brand/icon-96.png",
       tag: data.tag,
       data: { url: data.url || "/value-bets" },
     }),

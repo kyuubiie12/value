@@ -65,16 +65,16 @@ const fontVars = [grotesk, oswald, teko, rajdhani, anton]
 
 export const metadata: Metadata = {
   title: {
-    default: "ValueBet AI",
-    template: "%s · ValueBet AI",
+    default: "Mentor",
+    template: "%s · Mentor",
   },
   description:
     "AI-drevet værktøj til at finde value-odds på tværs af bookmakere og tracke din betting-portfolio. Analyse og tracking — ikke et spilsted.",
-  applicationName: "ValueBet AI",
-  appleWebApp: { capable: true, title: "ValueBet", statusBarStyle: "black-translucent" },
+  applicationName: "Mentor",
+  appleWebApp: { capable: true, title: "Mentor", statusBarStyle: "black-translucent" },
   icons: {
-    icon: [{ url: "/pwa-icon/192", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/pwa-icon/maskable-180", sizes: "180x180", type: "image/png" }],
+    icon: [{ url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

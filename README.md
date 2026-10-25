@@ -1,9 +1,9 @@
-# ValueBet AI
+# Mentor
 
 AI-drevet værktøj til at finde **value-odds på fodbold** på tværs af bookmakere +
 personlig **portfolio-tracker**, med rigtige brugerkonti.
 
-> ValueBet AI er et **analyse- og trackingværktøj**. Appen formidler ikke spil og
+> Mentor er et **analyse- og trackingværktøj**. Appen formidler ikke spil og
 > placerer ingen væddemål.
 
 **Live:** https://valuebet-ai-chi.vercel.app

@@ -55,7 +55,7 @@ export function AnsvarSection({
       <SectionHeader
         icon={ShieldCheck}
         title="Ansvarligt spil"
-        desc="Sæt dine egne grænser — ValueBet AI placerer aldrig væddemål for dig"
+        desc="Sæt dine egne grænser — Mentor placerer aldrig væddemål for dig"
       />
       <CardContent className="flex flex-col gap-8">
         <div className="grid gap-3 sm:grid-cols-3">
@@ -159,7 +159,7 @@ export function AnsvarSection({
 
         <Group
           title="Brug for en pause eller hjælp?"
-          hint="Uafhængige tjenester — ikke tilknyttet ValueBet AI."
+          hint="Uafhængige tjenester — ikke tilknyttet Mentor."
         >
           <div className="grid gap-2.5 sm:grid-cols-3">
             {HELP_LINKS.map((l) => (
@@ -183,7 +183,7 @@ export function AnsvarSection({
             ))}
           </div>
           <p className="mt-3 text-[11px] text-subtle">
-            Spil kun for penge du har råd til at tabe. 18+. ValueBet AI er et analyse- og
+            Spil kun for penge du har råd til at tabe. 18+. Mentor er et analyse- og
             trackingværktøj og formidler ikke spil.
           </p>
         </Group>

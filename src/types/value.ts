@@ -44,7 +44,7 @@ export interface ValueOpportunity {
    * `consensus`: the average of the other bookmakers' prices — a price
    * disagreement, weaker than a sharp reference (used for player props).
    */
-  fairBasis?: "sharp" | "consensus";
+  fairBasis?: "sharp" | "consensus" | "history";
   /** 1 / fairOdds. */
   fairProbability: number;
   /** Best price at the moment the opportunity was first detected. */
@@ -125,6 +125,17 @@ export interface PlayerStatContext {
   /** Chance of reaching the line if the player repeats his rate (Poisson). */
   modelProbability: number;
   modelFairOdds: number;
+  /** His last matches, when the reasoning is built on them (player props). */
+  history?: {
+    /** The stat in each of his recent matches, most recent first. */
+    counts: number[];
+    /** Matches where he reached the line. */
+    hits: number;
+    n: number;
+    hitRate: number;
+    /** Chance from his average alone — a cross-check on the hit rate. */
+    poisson: number;
+  };
 }
 
 export interface ValueFilters {

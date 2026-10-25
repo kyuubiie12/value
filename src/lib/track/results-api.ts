@@ -52,6 +52,7 @@ export async function fetchCorners(id: number): Promise<number | null> {
 }
 
 interface RawPlayers {
+  team: { id: number };
   players: {
     player: { id: number; name: string };
     statistics: {
@@ -70,7 +71,7 @@ const n = (v: number | null | undefined) => v ?? 0;
 /** Every player's line in a finished match (both teams). */
 export async function fetchMatchPlayers(id: number) {
   const { rows } = await apiFootballCall<RawPlayers>("/fixtures/players", { fixture: String(id) });
-  const out: { id: number; name: string; stat: PlayerMatchStat }[] = [];
+  const out: { id: number; name: string; teamId: number; stat: PlayerMatchStat }[] = [];
   for (const team of rows) {
     for (const p of team.players) {
       const s = p.statistics[0];
@@ -78,6 +79,7 @@ export async function fetchMatchPlayers(id: number) {
       out.push({
         id: p.player.id,
         name: p.player.name,
+        teamId: team.team.id,
         stat: {
           minutes: s.games.minutes,
           shots: n(s.shots.total),
@@ -117,4 +119,21 @@ export async function fetchDayFixtures(date: string): Promise<DayFixture[]> {
     });
   }
   return out;
+}
+
+export interface FinishedFixture {
+  id: number;
+  date: string;
+}
+
+/** A team's finished matches in one season, newest first. */
+export async function fetchTeamFinished(teamId: number, season: number): Promise<FinishedFixture[]> {
+  const { rows } = await apiFootballCall<RawFixture>("/fixtures", {
+    team: String(teamId),
+    season: String(season),
+    status: "FT",
+  });
+  return rows
+    .map((r) => ({ id: r.fixture.id, date: new Date(r.fixture.date).toISOString() }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }

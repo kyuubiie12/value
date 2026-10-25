@@ -1,4 +1,4 @@
-/** Shared primitive domain types. ValueBet AI is football-only. */
+/** Shared primitive domain types. Mentor is football-only. */
 
 export type MarketType =
   | "1x2"

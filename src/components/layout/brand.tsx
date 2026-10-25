@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -10,23 +11,17 @@ export function Brand({ className }: { className?: string }) {
         className,
       )}
     >
-      <span
+      <Image
+        src="/brand/mentor-tile.svg"
+        alt=""
         aria-hidden
-        className="grid size-[26px] place-items-center rounded-[9px] bg-primary text-primary-contrast shadow-[var(--shadow-sm)]"
-      >
-        <svg viewBox="0 0 24 24" className="size-[15px]" fill="none" aria-hidden>
-          <path
-            d="M12 3v18M12 3l6 4M12 3L6 7M4 12h16M6 17l6 4 6-4"
-            stroke="currentColor"
-            strokeWidth="2.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      <span className="text-[15px] font-semibold tracking-[-0.02em] text-fg">
-        ValueBet<span className="text-primary-strong">&nbsp;AI</span>
-      </span>
+        width={28}
+        height={28}
+        priority
+        unoptimized
+        className="size-7 shrink-0 rounded-[22%]"
+      />
+      <span className="text-[16px] font-semibold tracking-[-0.02em] text-fg">Mentor</span>
     </Link>
   );
 }

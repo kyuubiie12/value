@@ -151,6 +151,11 @@ const STATEMENTS = [
     key TEXT NOT NULL,
     PRIMARY KEY (user_id, key)
   )`,
+  `CREATE TABLE IF NOT EXISTS match_players (
+    fixture_id INTEGER PRIMARY KEY,
+    players_json TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS feed_meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL

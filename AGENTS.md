@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# ValueBet AI — projektkonventioner
+# Mentor — projektkonventioner
 
 Analyse- og trackingværktøj til **fodbold**-value-betting. **Placerer aldrig væddemål.** Dansk UI.
 

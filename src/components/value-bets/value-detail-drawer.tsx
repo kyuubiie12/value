@@ -135,7 +135,7 @@ export function ValueDetailDrawer({
       } · ${formatPercent(o.expectedValue, { signed: true })} value (fair ${formatOdds(
         o.fairOdds,
       )})`,
-      `Fundet af ValueBet AI`,
+      `Fundet af Mentor`,
     ].join("\n");
     try {
       if (navigator.share) await navigator.share({ text: line });
@@ -272,6 +272,32 @@ export function ValueDetailDrawer({
             <p className="text-[14px] font-semibold leading-snug text-fg">{why.headline}</p>
             {insight?.source === "ai" && insight.summary && (
               <p className="mt-2 text-[13px] leading-relaxed text-fg">{insight.summary}</p>
+            )}
+            {o.playerStats?.history && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-subtle">
+                  {o.playerStats.player} · {o.playerStats.metric} pr. kamp (nyeste først)
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {o.playerStats.history.counts.map((c, i) => (
+                    <span
+                      key={i}
+                      title={c >= o.playerStats!.line ? "Nåede linjen" : "Nåede ikke linjen"}
+                      className={cn(
+                        "tabular grid size-8 place-items-center rounded-full text-[12px] font-semibold ring-1 ring-inset",
+                        c >= o.playerStats!.line
+                          ? "bg-positive/15 text-positive ring-positive/30"
+                          : "bg-surface-2 text-subtle ring-line/70",
+                      )}
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] text-subtle">
+                  Grøn = han nåede {o.playerStats.line}+ i den kamp.
+                </p>
+              </div>
             )}
             <ul className="mt-3 space-y-2">
               {why.points.map((p) => (

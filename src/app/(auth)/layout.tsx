@@ -29,7 +29,7 @@ export default async function AuthLayout({
             <span className="text-primary-strong">før markedet retter dem.</span>
           </h1>
           <p className="mt-4 max-w-sm text-[13.5px] leading-relaxed text-muted">
-            ValueBet AI sammenligner dine bookmakeres priser med fair odds og
+            Mentor sammenligner dine bookmakeres priser med fair odds og
             markerer spillene med værdi. Hvert pick bliver fulgt og gjort op
             offentligt.
           </p>

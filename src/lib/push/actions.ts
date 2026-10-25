@@ -71,7 +71,7 @@ export async function sendTestPushAction(): Promise<{
 }> {
   const userId = await requireUserId();
   const r = await sendPushToUser(userId, {
-    title: "ValueBet AI — test",
+    title: "Mentor — test",
     body: "Push virker. Du får besked her, når der er nyt at se.",
     url: "/value-bets",
     tag: "test",

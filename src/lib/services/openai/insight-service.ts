@@ -16,7 +16,7 @@ interface PromptInput {
   bestBookmaker: string;
   fairOdds: number;
   /** "sharp": Pinnacle without margin. "consensus": the other bookmakers' average. */
-  fairBasis: "sharp" | "consensus";
+  fairBasis: "sharp" | "consensus" | "history";
   edgePercent: number;
   prices: { bookmaker: string; odds: number }[];
   movement: string;
@@ -55,6 +55,8 @@ Regler:
   der ikke står i data. Du kender ikke noget til holdene ud over tallene.
 - Forklar mekanismen: hvilken pris er højere end hvad, hvor stor forskellen er,
   og hvad det betyder for den forventede gevinst på sigt.
+- Er fairBasis "history", så bygger det på spillerens egne seneste kampe (facts har tallene
+  pr. kamp). Forklar hvor mange af kampene han nåede linjen, og at vi regner pessimistisk.
 - Er fairBasis "consensus", så sig ærligt, at det er en prisforskel mellem
   bookmakere uden en skarp reference — ikke et bevis. Er det "sharp", så forklar,
   at fair odds er den skarpe bookmakers pris uden margin.
