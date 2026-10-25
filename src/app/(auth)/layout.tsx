@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { trackRecordService } from "@/lib/services";
 import { formatDate, formatPercent } from "@/lib/format";
-import { BrandMark } from "@/components/shared/brand-mark";
+import { BrandMark, MentorM } from "@/components/shared/brand-mark";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +19,12 @@ export default async function AuthLayout({
     <div className="min-h-screen bg-bg lg:grid lg:grid-cols-[1.05fr_1fr]">
       {/* Marketing / trust panel — desktop only */}
       <aside className="relative hidden overflow-hidden border-r border-line bg-surface lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        <MentorM
+          height={460}
+          className="pointer-events-none absolute -bottom-24 -right-24 opacity-[0.07]"
+        />
         <div className="relative z-10">
-          <BrandMark size="md" />
+          <BrandMark size="lg" />
         </div>
 
         <div className="relative z-10 max-w-md">
@@ -60,7 +64,7 @@ export default async function AuthLayout({
       <main className="flex min-h-screen flex-col items-center justify-center px-5 py-12 sm:px-8">
         <div className="w-full max-w-[380px]">
           <div className="mb-9 lg:hidden">
-            <BrandMark size="md" />
+            <BrandMark size="lg" />
           </div>
           {children}
         </div>
