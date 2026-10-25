@@ -56,7 +56,13 @@ export async function recentMatchesCached(teamId: number, want: number): Promise
   if (cached && Date.now() - Number((await meta(`${key}_at`)) ?? 0) < RECENT_TTL_MS) {
     return JSON.parse(cached) as RecentMatch[];
   }
-  const recent = await teamRecentMatches(teamId, want);
+  let recent: RecentMatch[];
+  try {
+    recent = await teamRecentMatches(teamId, want);
+  } catch (err) {
+    if (err instanceof SportApiError && !err.blocked && err.message.includes("404")) return []; // unknown team: nothing to add
+    throw err;
+  }
   await setMeta(key, JSON.stringify(recent));
   await setMeta(`${key}_at`, String(Date.now()));
   return recent;
@@ -86,7 +92,13 @@ export async function fixtureHistory(
         } else {
           const left = sportApiRemaining();
           if (left !== null && left < SPORTAPI_RESERVE) throw new SportApiError("SportAPI allowance nearly spent", true);
-          players = await sportApiMatchPlayers(m.id);
+          try {
+            players = await sportApiMatchPlayers(m.id);
+          } catch (err) {
+            // No line-ups for that one match (404): it simply adds nothing — it must not sink the whole record.
+            if (err instanceof SportApiError && !err.blocked && err.message.includes("404")) players = [];
+            else throw err;
+          }
           await db
             .insert(matchPlayers)
             .values({ fixtureId: cacheId, playersJson: JSON.stringify(players), fetchedAt: new Date().toISOString() })
