@@ -20,6 +20,9 @@ export interface TeamFormMatch {
   ga: number;
   home: boolean;
   opponent: string;
+  /** Corners the team won / conceded in that match, when known. */
+  cf?: number;
+  ca?: number;
 }
 
 export interface ValueOpportunity {

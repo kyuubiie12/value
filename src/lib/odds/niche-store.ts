@@ -83,7 +83,7 @@ export async function needsNicheRefresh(): Promise<boolean> {
   const meta = await getAllMeta();
   let value: boolean;
   if (Number(meta.niche_blocked_until ?? 0) > now || Number(meta.niche_lock ?? 0) > now) value = false;
-  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2") value = true;
+  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2" || meta.niche_opps_v !== "2") value = true;
   else value = (await pickDue(now)).length > 0;
   needsCache = { at: now, value };
   return value;
@@ -151,6 +151,11 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
 
   let priced = 0;
   try {
+    // One-time: price everything again so props from the old (price-gap) detector are replaced.
+    if (meta.niche_opps_v !== "2") {
+      await db.update(nicheFixtures).set({ oppsJson: null, fetchedAt: null });
+      await setMeta("niche_opps_v", "2");
+    }
     await db.delete(nicheFixtures).where(lt(nicheFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
 
     const markets: NicheMarkets = (await loadMarketDicts()).niche;
@@ -220,7 +225,8 @@ export async function loadNicheOpportunities(): Promise<ValueOpportunity[]> {
   for (const r of rows) {
     if (!r.oppsJson) continue;
     try {
-      out.push(...(JSON.parse(r.oppsJson) as ValueOpportunity[]));
+      // Only props proven by the player's own matches — older price-gap ones are dropped.
+      out.push(...(JSON.parse(r.oppsJson) as ValueOpportunity[]).filter((o) => o.fairBasis === "history"));
     } catch {
       /* skip a corrupt row */
     }

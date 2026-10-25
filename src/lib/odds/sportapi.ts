@@ -195,3 +195,14 @@ export async function matchCorners(eventId: number): Promise<number | null> {
   }
   return null;
 }
+
+/** Corners taken by each side in one match (home, away), or null if the provider has none. */
+export async function matchCornerSplit(eventId: number): Promise<{ home: number; away: number } | null> {
+  const d = await call<RawStatistics>(`/api/v1/event/${eventId}/statistics`);
+  const all = d.statistics?.find((p) => p.period === "ALL") ?? d.statistics?.[0];
+  for (const g of all?.groups ?? []) {
+    const c = g.statisticsItems?.find((i) => i.key === "cornerKicks");
+    if (c) return { home: c.homeValue ?? 0, away: c.awayValue ?? 0 };
+  }
+  return null;
+}

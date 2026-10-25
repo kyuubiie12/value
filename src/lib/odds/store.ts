@@ -303,7 +303,7 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
     const missing = await db
       .select()
       .from(oddsFixtures)
-      .where(sql`${oddsFixtures.formJson} is null and ${oddsFixtures.oddsJson} is not null and ${oddsFixtures.startsAt} > ${new Date().toISOString()}`)
+      .where(sql`(${oddsFixtures.formJson} is null or ${oddsFixtures.formJson} not like '%"cf"%') and ${oddsFixtures.oddsJson} is not null and ${oddsFixtures.startsAt} > ${new Date().toISOString()}`)
       .limit(6)
       .all();
     for (const f of missing) {

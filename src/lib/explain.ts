@@ -93,6 +93,20 @@ function formPoints(o: ValueOpportunity): string[] {
         `${team} har scoret ${ms.map((m) => m.gf).join(", ")} mål i de seneste ${ms.length} kampe (snit ${dec(mean(ms.map((m) => m.gf)))}) — ${hit} af ${ms.length} gange ${over ? "over" : "under"} ${dec(threshold)}.`,
       ];
     }
+    case "corners": {
+      if (threshold === null) break;
+      const has = (ms: TeamFormMatch[]) => ms.filter((m) => typeof m.cf === "number" && typeof m.ca === "number");
+      const h = has(home);
+      const a = has(away);
+      if (h.length < 3 || a.length < 3) break;
+      const total = (m: TeamFormMatch) => (m.cf ?? 0) + (m.ca ?? 0);
+      const avg = (ms: TeamFormMatch[]) => dec(mean(ms.map(total)));
+      const hit = (ms: TeamFormMatch[]) => ms.filter((m) => (over ? total(m) > threshold : total(m) < threshold)).length;
+      const w = over ? "over" : "under";
+      return [
+        `Seneste ${h.length} kampe med ${w} ${dec(threshold)} hjørnespark: ${o.homeTeam} ${hit(h)} af ${h.length} (snit ${avg(h)} hjørnespark pr. kamp, ${dec(mean(h.map((m) => m.cf ?? 0)))} for og ${dec(mean(h.map((m) => m.ca ?? 0)))} imod), ${o.awayTeam} ${hit(a)} af ${a.length} (snit ${avg(a)}).`,
+      ];
+    }
     case "1x2":
     case "draw-no-bet":
     case "double-chance":
@@ -147,7 +161,7 @@ export function explainOpportunity(o: ValueOpportunity): Explanation {
 
   const headline = consensus
     ? `${bookName} giver ${formatOdds(o.bestOdds)} — de andre danske bookmakere giver i snit ${formatOdds(averageOf(others.map((q) => q.price)))} på det samme spil.`
-    : stats.length && (o.market === "over-under" || o.market === "team-total")
+    : stats.length && (o.market === "over-under" || o.market === "team-total" || o.market === "corners")
       ? `${stats[0].replace(/\.$/, "")}. Prisen hos ${bookName} er ${formatPercent(o.bestOdds / o.fairOdds - 1, { digits: 0 })} over Pinnacles fair odds.`
       : `Prisen er ${formatPercent(o.bestOdds / o.fairOdds - 1, { digits: 0 })} over fair odds fra Pinnacle.`;
 
