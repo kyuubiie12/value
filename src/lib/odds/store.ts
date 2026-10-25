@@ -22,7 +22,7 @@ const STALE_MS = 8 * 3_600_000;
 /** Only follow matches kicking off within this horizon. */
 const HORIZON_MS = 40 * 3_600_000;
 /** At most this many matches are followed at once (best leagues, soonest first). */
-const UNIVERSE = Number(process.env.ODDS_UNIVERSE) || 30;
+const UNIVERSE = Number(process.env.ODDS_UNIVERSE) || 45;
 /** Odds calls per run — keeps a run inside the function time limit. */
 const MAX_PER_RUN = 24;
 /** Keep this many OddsPapi calls in hand for the player-props feed. */
