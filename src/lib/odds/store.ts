@@ -2,7 +2,7 @@ import "server-only";
 import { eq, gt, lt, sql } from "drizzle-orm";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, oddsFixtures } from "@/lib/db/schema";
-import { horizonMs, MAX_HORIZON_MS } from "./config";
+import { horizonMs, LIVE_WINDOW_MS, MAX_HORIZON_MS } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { fetchFixtureNicheOdds, OddsPapiError, oddsPapiConfigured } from "./oddspapi";
 import { ensureNicheFixtures } from "./niche-store";
@@ -70,7 +70,7 @@ export async function loadPricedFixtures(): Promise<FixtureRecord[]> {
   const rows = await db
     .select()
     .from(oddsFixtures)
-    .where(gt(oddsFixtures.startsAt, new Date().toISOString()))
+    .where(gt(oddsFixtures.startsAt, new Date(Date.now() - LIVE_WINDOW_MS).toISOString()))
     .all();
   const out: FixtureRecord[] = [];
   for (const r of rows) {
@@ -140,7 +140,7 @@ const toPapiId = (fixtureId: number) => `id${fixtureId}`;
  */
 async function syncFixtures(now: number) {
   await db.delete(oddsFixtures).where(lt(oddsFixtures.fixtureId, LEGACY_ID_LIMIT));
-  await db.delete(oddsFixtures).where(lt(oddsFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
+  await db.delete(oddsFixtures).where(lt(oddsFixtures.startsAt, new Date(now - 2 * LIVE_WINDOW_MS).toISOString()));
   const listed = await db
     .select()
     .from(nicheFixtures)

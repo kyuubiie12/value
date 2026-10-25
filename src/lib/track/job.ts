@@ -2,6 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta } from "@/lib/db/schema";
+import { hasStatistics } from "@/lib/explain";
 import { detectValue } from "@/lib/odds/detect";
 import { oddsPapiConfigured } from "@/lib/odds/oddspapi";
 import { loadNicheOpportunities } from "@/lib/odds/niche-store";
@@ -12,10 +13,10 @@ import { recordPicks, settlePending } from "./store";
 /**
  * The track record's background work: save every value bet the feed currently
  * shows (once, at its first price), then grade the ones whose match is over.
- * Runs at most every ~15 minutes, whoever's page view happens to trigger it.
+ * Runs at most every ~5 minutes, whoever's page view happens to trigger it.
  */
 
-const EVERY_MS = 15 * 60_000;
+const EVERY_MS = 5 * 60_000;
 const LOCK_MS = 4 * 60_000;
 
 let checkedAt = 0;
@@ -48,11 +49,12 @@ export async function runTrackingJob(): Promise<{ added: number; settled: number
       loadPricedFixtures(),
       oddsPapiConfigured() ? loadNicheOpportunities() : Promise.resolve([]),
     ]);
-    const all = [...fixtures.flatMap(detectValue), ...niche];
+    // Exactly what the feed shows: only bets the teams' or player's own numbers explain.
+    const all = [...fixtures.flatMap(detectValue), ...niche].filter(hasStatistics);
     const added = await recordPicks(all);
     const { settled } = await settlePending();
     // Users' bets follow the graded picks; then tell them what happened.
-    await runNotificationJob(all);
+    await runNotificationJob(all.filter((o) => new Date(o.startsAt).getTime() > Date.now()));
     await setMeta("track_last_at", String(Date.now()));
     return { added, settled };
   } catch (err) {

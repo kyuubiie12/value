@@ -129,5 +129,7 @@ export const MIN_EV = 0.005;
  * days ahead, so a Tuesday/Wednesday night is visible from the weekend.
  */
 const CONTINENTAL = new Set(["uefa-ucl", "uefa-uel", "uefa-uecl"]);
+/** A match stays in the feed, marked "I gang", this long after kick-off. */
+export const LIVE_WINDOW_MS = 115 * 60_000;
 export const MAX_HORIZON_MS = 72 * 3_600_000;
 export const horizonMs = (leagueId: string) => (CONTINENTAL.has(leagueId) ? 72 : 40) * 3_600_000;

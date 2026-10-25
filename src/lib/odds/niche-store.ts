@@ -3,7 +3,7 @@ import { and, eq, gt, inArray, like, lt, sql } from "drizzle-orm";
 import type { ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, playerNames, trackPicks } from "@/lib/db/schema";
-import { horizonMs, MAX_HORIZON_MS } from "./config";
+import { horizonMs, LIVE_WINDOW_MS, MAX_HORIZON_MS } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { findPlayer } from "./player-model";
 import { fixtureHistory } from "./player-history";
@@ -157,7 +157,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         .where(and(eq(trackPicks.status, "pending"), like(trackPicks.gradeJson, '%"type":"prop"%')));
       await setMeta("niche_opps_v", "2");
     }
-    await db.delete(nicheFixtures).where(lt(nicheFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
+    await db.delete(nicheFixtures).where(lt(nicheFixtures.startsAt, new Date(now - 2 * LIVE_WINDOW_MS).toISOString()));
 
     const markets: NicheMarkets = (await loadMarketDicts()).niche;
 
@@ -230,7 +230,7 @@ export async function loadNicheOpportunities(): Promise<ValueOpportunity[]> {
   const rows = await db
     .select()
     .from(nicheFixtures)
-    .where(gt(nicheFixtures.startsAt, new Date().toISOString()))
+    .where(gt(nicheFixtures.startsAt, new Date(Date.now() - LIVE_WINDOW_MS).toISOString()))
     .all();
   const out: ValueOpportunity[] = [];
   for (const r of rows) {

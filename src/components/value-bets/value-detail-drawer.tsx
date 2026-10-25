@@ -189,6 +189,9 @@ export function ValueDetailDrawer({
           <div className="flex min-w-0 items-center gap-2.5 text-[11px] text-subtle">
             <LeagueBadge leagueId={o.leagueId} />
             <span>{formatKickoff(o.startsAt)}</span>
+            {new Date(o.startsAt).getTime() <= Date.now() && (
+              <span suppressHydrationWarning>· odds er fra før kampen</span>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button

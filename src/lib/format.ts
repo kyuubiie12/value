@@ -118,6 +118,8 @@ export function formatTime(iso: string): string {
 export function formatKickoff(iso: string, now: Date = new Date()): string {
   const date = new Date(iso);
   const time = date.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
+  const sinceKickoff = now.getTime() - date.getTime();
+  if (sinceKickoff >= 0 && sinceKickoff < 115 * 60_000) return `I gang (siden ${time})`;
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const days = Math.round(
     (startOfDay(date).getTime() - startOfDay(now).getTime()) / 86_400_000,
