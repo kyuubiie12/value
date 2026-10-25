@@ -9,6 +9,8 @@ import { opportunityReads } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { detectValue } from "@/lib/odds/detect";
 import { feedStatus, loadPricedFixtures, needsRefresh, refreshOdds } from "@/lib/odds/store";
+import { oddsPapiConfigured } from "@/lib/odds/oddspapi";
+import { loadNicheOpportunities, needsNicheRefresh, refreshNiche } from "@/lib/odds/niche-store";
 import type { ValueService } from "../types";
 
 /**
@@ -28,10 +30,13 @@ async function readIds(userId: string): Promise<Set<string>> {
 
 /** One detection pass per request, however many components ask for the feed. */
 const detectAll = cache(async (): Promise<ValueOpportunity[]> => {
-  const fixtures = await loadPricedFixtures();
-  return fixtures
-    .flatMap(detectValue)
-    .sort((a, b) => b.edgePercent - a.edgePercent);
+  const [fixtures, niche] = await Promise.all([
+    loadPricedFixtures(),
+    oddsPapiConfigured() ? loadNicheOpportunities() : Promise.resolve([]),
+  ]);
+  return [...fixtures.flatMap(detectValue), ...niche].sort(
+    (a, b) => b.edgePercent - a.edgePercent,
+  );
 });
 
 export function createOddsValueService(): ValueService {
@@ -40,6 +45,7 @@ export function createOddsValueService(): ValueService {
       await dbReady;
       // Keep the cache warm in the background; this request is served from what we have.
       if (await needsRefresh()) after(() => refreshOdds());
+      if (oddsPapiConfigured() && (await needsNicheRefresh())) after(() => refreshNiche());
       const [all, read] = await Promise.all([detectAll(), requireUserId().then(readIds)]);
       return filterOpportunities(
         all.map((o) => ({ ...o, read: read.has(o.id) })),

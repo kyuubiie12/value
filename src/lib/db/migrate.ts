@@ -92,6 +92,19 @@ const STATEMENTS = [
     fetched_at TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS odds_fixtures_starts_at ON odds_fixtures(starts_at)`,
+  `CREATE TABLE IF NOT EXISTS niche_fixtures (
+    fixture_id TEXT PRIMARY KEY,
+    league_id TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    opps_json TEXT,
+    fetched_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS player_names (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS feed_meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL

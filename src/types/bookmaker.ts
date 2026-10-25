@@ -25,6 +25,8 @@ export interface Bookmaker {
   logoBare?: boolean;
   /** Optional explicit logo override (local file or full URL). Wins over everything. */
   logoUrl?: string;
+  /** Licensed in Denmark — the only books the app lets a user pick and compare. */
+  denmark?: boolean;
   /** True for sharp books (e.g. Pinnacle) used as a fair-odds reference. */
   isSharp: boolean;
   /** Average market payout, 0–1 (e.g. 0.972 = ~2.8% margin). */

@@ -9,21 +9,15 @@ import {
   ChartNoAxesCombined,
   Check,
   CircleCheckBig,
-  Loader2,
   Plus,
   Share2,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
-import type { MarketPerformance, MarketStatContext, ValueOpportunity } from "@/types";
-import type { OpportunityInsight } from "@/lib/services";
+import type { MarketStatContext, ValueOpportunity } from "@/types";
 import { DEFAULT_SETTINGS, getBookmaker } from "@/lib/mock-data";
-import { suggestedStake } from "@/lib/betting-math";
 import { fixtureHref } from "@/lib/fixtures";
-import { valueScore, valueScoreLabel } from "@/lib/value-score";
 import {
-  analyseOpportunityAction,
   markOpportunityReadAction,
   trackOpportunityAction,
   untrackOpportunityAction,
@@ -41,18 +35,14 @@ import { Button } from "@/components/ui/button";
 import { EvIndicator } from "@/components/shared/ev-indicator";
 import { LeagueBadge } from "@/components/shared/league-badge";
 import { FairPills } from "@/components/shared/fair-pills";
-import { FormGuide } from "@/components/shared/form-guide";
-import { PriceMovementTag } from "@/components/shared/price-movement";
 import { BookmakerLogo } from "@/components/shared/bookmaker-logo";
-import { ValueScoreDial } from "./value-score-dial";
 import { OddsBoard } from "./odds-board";
-import { KellyStakePanel } from "./kelly-stake";
+
+/** Starting stake in the box — the user types their own. */
+const DEFAULT_STAKE = 100;
 
 export function ValueDetailDrawer({
   opportunity,
-  bankroll,
-  kellyFraction = DEFAULT_SETTINGS.kellyFraction,
-  stakeRounding = DEFAULT_SETTINGS.stakeRounding,
   tracked = false,
   trackedStake,
   onClose,
@@ -73,20 +63,6 @@ export function ValueDetailDrawer({
   const [shared, setShared] = React.useState(false);
   const open = opportunity !== null;
 
-  // Recommended stake = fractional Kelly against the bankroll, rounded.
-  const recommendedStake = React.useMemo(
-    () =>
-      opportunity
-        ? suggestedStake(
-            opportunity.kellyFraction,
-            kellyFraction,
-            bankroll,
-            stakeRounding,
-          )
-        : 0,
-    [opportunity, kellyFraction, bankroll, stakeRounding],
-  );
-
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -99,9 +75,6 @@ export function ValueDetailDrawer({
   }, [open, onClose]);
 
   const drawerKey = opportunity?.id ?? null;
-  const [insight, setInsight] = React.useState<OpportunityInsight | null>(null);
-  const [marketPerf, setMarketPerf] = React.useState<MarketPerformance | null>(null);
-  const [insightLoading, setInsightLoading] = React.useState(false);
   const [isTracked, setIsTracked] = React.useState(tracked);
   const [stakeInput, setStakeInput] = React.useState("");
   const [trackPending, startTrackTransition] = React.useTransition();
@@ -109,11 +82,8 @@ export function ValueDetailDrawer({
   if (drawerKey !== seenKey) {
     setSeenKey(drawerKey);
     setMarkedRead(false);
-    setInsight(null);
-    setMarketPerf(null);
-    setInsightLoading(drawerKey !== null);
     setIsTracked(tracked);
-    setStakeInput(String(trackedStake ?? recommendedStake));
+    setStakeInput(String(trackedStake ?? DEFAULT_STAKE));
   }
 
   const stakeValue = Math.max(
@@ -121,27 +91,8 @@ export function ValueDetailDrawer({
     Math.round(Number(stakeInput.replace(",", ".")) || 0),
   );
 
-  React.useEffect(() => {
-    if (!drawerKey) return;
-    let cancelled = false;
-    analyseOpportunityAction(drawerKey)
-      .then((r) => {
-        if (cancelled || !r) return;
-        setInsight(r.insight);
-        setMarketPerf(r.marketPerformance);
-      })
-      .finally(() => {
-        if (!cancelled) setInsightLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [drawerKey]);
-
   if (!open || typeof document === "undefined") return null;
   const o = opportunity;
-  const score = valueScore(o);
-  const edgeVsFair = o.bestOdds / o.fairOdds - 1;
 
   const markRead = () => {
     startTransition(async () => {
@@ -243,10 +194,6 @@ export function ValueDetailDrawer({
               {o.homeTeam} <span className="font-normal text-subtle">vs</span>{" "}
               {o.awayTeam}
             </p>
-            <div className="mt-2 flex items-center justify-between">
-              <FormGuide form={o.homeForm} />
-              <FormGuide form={o.awayForm} />
-            </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
                 href={fixtureHref(o)}
@@ -286,33 +233,6 @@ export function ValueDetailDrawer({
               className="mt-3 border-t border-primary/15 pt-3"
             />
           </div>
-
-          {/* Verdict */}
-          <div className="flex items-center gap-4 rounded-[var(--radius)] border border-line bg-surface p-4">
-            <ValueScoreDial score={score} size={72} showLabel={false} />
-            <div>
-              <p className="text-[13px] font-semibold text-fg">
-                {valueScoreLabel(score)} value ({score}/100)
-              </p>
-              <p className="mt-0.5 text-[12px] text-muted">
-                Din pris slår fair odds med {formatPercent(edgeVsFair, { signed: true })}.
-              </p>
-              <div className="mt-1.5">
-                <PriceMovementTag
-                  movement={o.priceMovement}
-                  openingOdds={o.openingOdds}
-                  currentOdds={o.bestOdds}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Kelly */}
-          <KellyStakePanel
-            bestOdds={o.bestOdds}
-            fairProbability={o.fairProbability}
-            bankroll={bankroll}
-          />
 
           {/* Spiller du med? — pick a stake, add with the footer button */}
           <div
@@ -368,18 +288,7 @@ export function ValueDetailDrawer({
             </div>
 
             <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="text-[10px] text-subtle">
-                Anbefalet: {formatCurrency(recommendedStake, DEFAULT_SETTINGS.currency)}
-                {stakeInput !== String(recommendedStake) && (
-                  <button
-                    type="button"
-                    onClick={() => setStakeInput(String(recommendedStake))}
-                    className="ml-1.5 cursor-pointer font-medium text-primary-strong hover:underline"
-                  >
-                    Brug
-                  </button>
-                )}
-              </span>
+              <span />
               {isTracked && stakeDirty ? (
                 <button
                   type="button"
@@ -410,85 +319,10 @@ export function ValueDetailDrawer({
               quotes={o.quotes}
               bestBookmakerId={o.bestBookmakerId}
               fairOdds={o.fairOdds}
+              fairBasis={o.fairBasis}
             />
           </div>
 
-          {/* Data bag linjen — the concrete per-team + head-to-head numbers
-              behind a counting-stat market (corners, cards). AI reasoning
-              is a synthesis; this is the raw data it's synthesising, given
-              its own accent-toned card so it reads as evidence, not a
-              footnote next to it. */}
-          {o.statContext && (
-            <LineDataPanel
-              s={o.statContext}
-              homeTeam={o.homeTeam}
-              awayTeam={o.awayTeam}
-              selection={o.selection}
-            />
-          )}
-
-          {/* AI analysis */}
-          <div>
-            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-subtle">
-              <Sparkles className="size-3 text-primary" aria-hidden />
-              AI-analyse
-              {insightLoading && (
-                <Loader2 className="size-3 animate-spin text-subtle" aria-hidden />
-              )}
-              {insight?.source === "ai" && (
-                <span className="rounded-full bg-primary/12 px-1.5 py-px text-[9px] font-semibold text-primary-strong">
-                  live
-                </span>
-              )}
-            </p>
-
-            {insight?.summary && (
-              <p className="mb-2.5 text-[13px] leading-relaxed text-fg">
-                {insight.summary}
-              </p>
-            )}
-
-            <ul className="space-y-1.5">
-              {(insight?.signals ?? o.signals).map((s) => (
-                <li key={s} className="flex items-start gap-2 text-[13px] text-muted">
-                  <span className="mt-1.5 size-1 shrink-0 rounded-full bg-primary" />
-                  {s}
-                </li>
-              ))}
-            </ul>
-
-            {insightLoading && !insight && (
-              <p className="mt-2 text-[11px] text-subtle">Analyserer kampen…</p>
-            )}
-          </div>
-
-          {/* Track record for this market */}
-          {marketPerf && marketPerf.picks >= 5 && (
-            <div className="rounded-[var(--radius-sm)] border border-line bg-surface p-3.5">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">
-                AI&apos;ens {o.marketLabel}-picks · track record
-              </p>
-              <div className="mt-2 grid grid-cols-3 gap-3 text-center">
-                <PerfStat
-                  label="Hit rate"
-                  value={formatPercent(marketPerf.hitRate)}
-                />
-                <PerfStat
-                  label="Yield"
-                  value={formatPercent(marketPerf.roi, { signed: true })}
-                  tone={marketPerf.roi >= 0 ? "positive" : "negative"}
-                />
-                <PerfStat
-                  label="Gns. CLV"
-                  value={formatPercent(marketPerf.avgClv, { signed: true })}
-                  tone={marketPerf.avgClv >= 0 ? "positive" : "negative"}
-                />
-              </div>
-              <p className="mt-2 text-[10px] text-subtle">
-                Over {marketPerf.picks} afgjorte picks i dette marked.
-              </p>
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-2 border-t border-line px-5 py-3.5">
@@ -680,34 +514,6 @@ export function LineDataPanel({
           )}
         </p>
       </div>
-    </div>
-  );
-}
-
-function PerfStat({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "positive" | "negative";
-}) {
-  return (
-    <div className="rounded-[10px] bg-bg px-2.5 py-2">
-      <p className="text-[9px] uppercase tracking-wide text-subtle">{label}</p>
-      <p
-        className={
-          "tabular mt-0.5 text-[13px] font-semibold " +
-          (tone === "positive"
-            ? "text-positive"
-            : tone === "negative"
-              ? "text-negative"
-              : "text-fg")
-        }
-      >
-        {value}
-      </p>
     </div>
   );
 }

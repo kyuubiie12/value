@@ -6,7 +6,9 @@ import type { ValueOpportunity } from "@/types";
  * feed, the hero and the detail view all agree.
  */
 export function valueScore(o: ValueOpportunity): number {
-  const edgePts = Math.min(68, (o.edgePercent / 12) * 68);
+  // A gap between soft books (no sharp reference) counts for half as much as sharp-backed edge.
+  const trust = o.fairBasis === "consensus" ? 0.5 : 1;
+  const edgePts = Math.min(68, (o.edgePercent / 12) * 68) * trust;
   const confPts = { low: 6, medium: 16, high: 24 }[o.confidence];
   const movePts =
     o.priceMovement === "shortening" ? 6 : o.priceMovement === "stable" ? 3 : 0;

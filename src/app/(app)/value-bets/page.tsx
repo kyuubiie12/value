@@ -114,6 +114,8 @@ export default async function ValueBetsPage() {
           trackedBets={trackedBets}
           kellyFraction={settings.kellyFraction}
           stakeRounding={settings.stakeRounding}
+          minEdge={settings.minEdge}
+          oddsRange={{ min: settings.minOdds ?? 0, max: settings.maxOdds ?? 0 }}
         />
       )}
     </div>

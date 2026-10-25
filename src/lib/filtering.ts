@@ -25,6 +25,8 @@ export function filterOpportunities(
     result = result.filter((o) => o.priceMovement === filters.movement);
   if (typeof filters.minEdge === "number")
     result = result.filter((o) => o.expectedValue >= filters.minEdge!);
+  if (filters.minOdds) result = result.filter((o) => o.bestOdds >= filters.minOdds!);
+  if (filters.maxOdds) result = result.filter((o) => o.bestOdds <= filters.maxOdds!);
   if (typeof filters.withinHours === "number") {
     const cutoff = Date.now() + filters.withinHours * 3_600_000;
     result = result.filter((o) => new Date(o.startsAt).getTime() <= cutoff);

@@ -37,8 +37,14 @@ export interface ValueOpportunity {
   bestBookmakerId: string;
   /** Unweighted market average of all quotes. */
   averageOdds: number;
-  /** De-vigged fair odds derived from the sharp book. */
+  /** De-vigged fair odds derived from the sharp book — or, for `consensus`, the other books' average price. */
   fairOdds: number;
+  /**
+   * What `fairOdds` is built from. `sharp` (default): Pinnacle without margin.
+   * `consensus`: the average of the other bookmakers' prices — a price
+   * disagreement, weaker than a sharp reference (used for player props).
+   */
+  fairBasis?: "sharp" | "consensus";
   /** 1 / fairOdds. */
   fairProbability: number;
   /** Best price at the moment the opportunity was first detected. */
@@ -101,6 +107,9 @@ export interface ValueFilters {
   movement?: PriceMovement;
   /** Minimum edge as a fraction (0.03 = +3%). */
   minEdge?: number;
+  /** Best-price range (decimal odds); omit a side for no limit. */
+  minOdds?: number;
+  maxOdds?: number;
   /** Only show opportunities kicking off within N hours. */
   withinHours?: number;
   search?: string;

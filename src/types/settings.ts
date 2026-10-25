@@ -63,6 +63,9 @@ export interface UserSettings {
 
   /** Feed defaults. */
   minEdge: number; // fraction — value bets below this EV are hidden from the feed
+  /** Only show bets whose best price is in this range (decimal odds). 0 = no limit. */
+  minOdds: number;
+  maxOdds: number;
   activeBookmakerIds: string[];
   favoriteLeagueIds: string[];
 

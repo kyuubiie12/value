@@ -24,7 +24,9 @@ export const DEFAULT_SETTINGS: UserSettings = {
   stakeRounding: 10,
 
   minEdge: 0.02,
-  activeBookmakerIds: ["bet365", "unibet", "danske-spil", "betano", "leovegas", "nordicbet"],
+  minOdds: 0,
+  maxOdds: 0,
+  activeBookmakerIds: ["bet365", "betano", "unibet", "danske-spil", "leovegas", "nordicbet", "betinia"],
   favoriteLeagueIds: ["eng-pl", "den-superliga", "uefa-ucl", "esp-laliga"],
 
   autoFollow: false,

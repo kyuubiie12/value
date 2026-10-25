@@ -53,6 +53,18 @@ export const BOOKMAKER_BY_API_ID: Record<number, string> = {
   9: "dafabet",
 };
 
+/** Danish-licensed books we compare and offer — everything else is ignored. */
+export const PLAYABLE_BOOKS = new Set([
+  "bet365",
+  "betano",
+  "unibet",
+  "nordicbet",
+  "betsson",
+  "bwin",
+  "888sport",
+  "betway",
+]);
+
 /** The sharp reference the fair price is de-vigged from. */
 export const SHARP_BOOK = "pinnacle";
 /** Books used as a reference only — never offered as a place to bet. */

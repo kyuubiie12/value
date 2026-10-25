@@ -11,11 +11,12 @@ import type {
   ValueOpportunity,
 } from "@/types";
 import { filterOpportunities } from "@/lib/filtering";
-import { valueScore } from "@/lib/value-score";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LeagueBadge } from "@/components/shared/league-badge";
 import { BetFormModal } from "@/components/portfolio/bet-form-modal";
 import { ValueFilterBar, type FeedView } from "./value-filter-bar";
+import { MinValueSlider } from "./min-value-slider";
+import { OddsRangeFilter, type OddsRange } from "./odds-range-filter";
 import { FeedPrimer } from "./feed-primer";
 import { ValueBetCard } from "./value-bet-card";
 import { ValueBetTable } from "./value-bet-table";
@@ -41,6 +42,8 @@ export function ValueFeed({
   trackedBets = {},
   kellyFraction = 0.25,
   stakeRounding = 10,
+  minEdge: savedMinEdge = 0,
+  oddsRange: savedOddsRange = { min: 0, max: 0 },
 }: {
   opportunities: ValueOpportunity[];
   bookmakers: Bookmaker[];
@@ -50,8 +53,24 @@ export function ValueFeed({
   trackedBets?: Record<string, TrackedBet>;
   kellyFraction?: number;
   stakeRounding?: number;
+  /** The user's saved minimum EV (fraction) — the slider's starting point. */
+  minEdge?: number;
+  /** The user's saved odds range (0 = no limit on that side). */
+  oddsRange?: OddsRange;
 }) {
   const [filters, setFilters] = React.useState<ValueFilters>({ sort: "score-desc" });
+  // The user's minimum value: moves the list instantly, saved on release.
+  const [minEdge, setMinEdge] = React.useState(savedMinEdge);
+  const [oddsRange, setOddsRange] = React.useState<OddsRange>(savedOddsRange);
+  // Standing limits — apply to the hero and the list alike.
+  const limits = React.useMemo<ValueFilters>(
+    () => ({
+      minEdge: minEdge || undefined,
+      minOdds: oddsRange.min || undefined,
+      maxOdds: oddsRange.max || undefined,
+    }),
+    [minEdge, oddsRange],
+  );
   const [view, setView] = React.useState<ViewMode>("cards");
   const [detailTarget, setDetailTarget] = React.useState<ValueOpportunity | null>(null);
   const [logTarget, setLogTarget] = React.useState<ValueOpportunity | null>(null);
@@ -74,13 +93,14 @@ export function ValueFeed({
   );
 
   const hero = React.useMemo(
-    () => [...opportunities].sort((a, b) => valueScore(b) - valueScore(a))[0] ?? null,
-    [opportunities],
+    () =>
+      filterOpportunities(opportunities, { ...limits, sort: "score-desc" })[0] ?? null,
+    [opportunities, limits],
   );
 
   const filtered = React.useMemo(
-    () => filterOpportunities(opportunities, filters),
-    [opportunities, filters],
+    () => filterOpportunities(opportunities, { ...filters, ...limits }),
+    [opportunities, filters, limits],
   );
 
   const noFilters =
@@ -129,6 +149,11 @@ export function ValueFeed({
           tracked={hero!.id in trackedBets}
         />
       )}
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <MinValueSlider value={minEdge} onChange={setMinEdge} />
+        <OddsRangeFilter value={oddsRange} onChange={setOddsRange} />
+      </div>
 
       <ValueFilterBar
         filters={filters}

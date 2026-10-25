@@ -7,7 +7,7 @@ import type {
 } from "@/types";
 import { expectedValue, kellyStake, removeVig } from "@/lib/betting-math";
 import { LEAGUE_MAP } from "@/lib/mock-data/leagues";
-import { BET, MAX_PLAUSIBLE_EV, MIN_EV, REFERENCE_BOOKS, SHARP_BOOK } from "./config";
+import { BET, MAX_PLAUSIBLE_EV, MIN_EV, PLAYABLE_BOOKS, SHARP_BOOK } from "./config";
 
 /** book id → API bet id → outcome label ("Home", "Over 2.5") → decimal odds. */
 export type BookOdds = Record<string, Record<string, Record<string, number>>>;
@@ -210,7 +210,7 @@ function buildGroups(rec: FixtureRecord): Group[] {
 function quotesFor(b: BookOdds, o: Outcome, at: string): OddsQuote[] {
   const quotes: OddsQuote[] = [];
   for (const book of Object.keys(b)) {
-    if (REFERENCE_BOOKS.has(book)) continue;
+    if (!PLAYABLE_BOOKS.has(book)) continue;
     const p = price(b, book, o.bet, o.value);
     if (p && p > 1) quotes.push({ bookmakerId: book, price: p, updatedAt: at });
   }

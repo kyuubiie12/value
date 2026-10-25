@@ -10,6 +10,11 @@ export type MarketType =
   | "team-total"
   | "corners"
   | "cards"
+  | "shots"
+  | "shots-on-target"
+  | "tackles"
+  | "fouls"
+  | "saves"
   | "ht-ft"
   | "correct-score";
 
@@ -47,6 +52,11 @@ export const MARKET_LABELS: Record<MarketType, string> = {
   "team-total": "Holdmål",
   corners: "Hjørnespark",
   cards: "Kort",
+  shots: "Spiller-skud",
+  "shots-on-target": "Spiller-skud på mål",
+  tackles: "Spiller-tacklinger",
+  fouls: "Spiller-fouls",
+  saves: "Målmandsredninger",
   "ht-ft": "Pause / fuldtid",
   "correct-score": "Korrekt resultat",
 };
@@ -55,6 +65,7 @@ export const MARKET_GROUPS: Record<string, MarketType[]> = {
   "Kampresultat": ["1x2", "double-chance", "draw-no-bet"],
   "Mål": ["over-under", "btts", "team-total", "correct-score"],
   "Handicap & specials": ["asian-handicap", "corners", "cards", "ht-ft"],
+  "Spiller-props": ["shots", "shots-on-target", "tackles", "fouls", "saves"],
 };
 
 export const BET_STATUS_LABELS: Record<BetStatus, string> = {

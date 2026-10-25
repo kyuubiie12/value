@@ -14,7 +14,8 @@ const EDGE_MARKS = [
   { value: 0.025, label: "2,5" },
   { value: 0.05, label: "5" },
   { value: 0.075, label: "7,5" },
-  { value: 0.1, label: "10 %" },
+  { value: 0.1, label: "10" },
+  { value: 0.15, label: "15 %" },
 ];
 
 export function FeedSection({
@@ -50,7 +51,7 @@ export function FeedSection({
               label="Skjul value bets under"
               value={form.minEdge}
               min={0}
-              max={0.1}
+              max={0.15}
               step={0.005}
               onChange={(v) => set("minEdge", Number(v.toFixed(3)))}
               format={(v) => `${formatPercent(v, { digits: 1 })} EV`}

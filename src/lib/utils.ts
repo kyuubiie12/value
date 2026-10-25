@@ -7,8 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /** Fake network latency so mock services feel like real async data. */
-export function delay<T>(value: T, ms = 220): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
+// Kept so the mock services read like real async calls, but it no longer adds
+// artificial latency — every page was paying 100–220 ms per call for nothing.
+export function delay<T>(value: T, _ms?: number): Promise<T> {
+  void _ms;
+  return Promise.resolve(value);
 }
 
 /** Deterministic pseudo-random in [0, 1) from a string seed — stable mock data. */

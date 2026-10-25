@@ -26,13 +26,6 @@ const SORT_OPTIONS: { value: ValueSort; label: string }[] = [
   { value: "detected-desc", label: "Nyeste" },
 ];
 
-const EDGE_STEPS = [
-  { value: "0", label: "Alle" },
-  { value: "0.02", label: "2%+" },
-  { value: "0.03", label: "3%+" },
-  { value: "0.05", label: "5%+" },
-];
-
 const WINDOW_STEPS = [
   { value: "0", label: "Alle" },
   { value: "12", label: "12t" },
@@ -80,7 +73,6 @@ export function ValueFilterBar({
     (filters.markets?.length ?? 0) +
     (filters.bookmakerIds?.length ?? 0) +
     (filters.movement ? 1 : 0) +
-    (filters.minEdge ? 1 : 0) +
     (filters.withinHours ? 1 : 0) +
     (filters.search ? 1 : 0);
 
@@ -138,14 +130,6 @@ export function ValueFilterBar({
                 </ToggleChip>
               ))}
             </div>
-          </FilterGroup>
-          <FilterGroup label="Min. EV">
-            <Segmented
-              size="sm"
-              value={String(filters.minEdge ?? 0)}
-              onChange={(v) => patch({ minEdge: Number(v) || undefined })}
-              options={EDGE_STEPS}
-            />
           </FilterGroup>
           <FilterGroup label="Kickoff inden for">
             <Segmented

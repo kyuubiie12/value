@@ -164,5 +164,25 @@ export const feedMeta = sqliteTable("feed_meta", {
   value: text("value").notNull(),
 });
 
+/**
+ * Player-prop value (OddsPapi). One row per upcoming fixture; `oppsJson` holds
+ * the already-detected opportunities, so the 1 MB odds payload is never stored.
+ */
+export const nicheFixtures = sqliteTable("niche_fixtures", {
+  fixtureId: text("fixture_id").primaryKey(),
+  leagueId: text("league_id").notNull(),
+  startsAt: text("starts_at").notNull(), // ISO
+  homeTeam: text("home_team").notNull(),
+  awayTeam: text("away_team").notNull(),
+  oppsJson: text("opps_json"),
+  fetchedAt: text("fetched_at"),
+});
+
+/** Player id → display name, so each player is looked up once. */
+export const playerNames = sqliteTable("player_names", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+});
+
 export type UserRow = typeof users.$inferSelect;
 export type BetRow = typeof bets.$inferSelect;
