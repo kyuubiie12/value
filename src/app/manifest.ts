@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
       "AI-drevet værktøj til at finde value-odds og tracke din portefølje. Analyse og tracking — ikke et spilsted.",
     lang: "da",
     id: "/",
-    start_url: "/value-bets",
+    start_url: "/login",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
