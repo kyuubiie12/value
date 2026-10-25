@@ -137,7 +137,8 @@ export async function feedStatus(): Promise<FeedStatus> {
     updatedAt: latest?.at ?? null,
     pricedFixtures: count?.n ?? 0,
     refreshing: Number(meta.refresh_lock ?? 0) > now,
-    quotaSpent: Number(meta.blocked_until ?? 0) > now,
+    // API-Football's daily quota only matters when OddsPapi isn't there to price the matches.
+    quotaSpent: Number(meta.blocked_until ?? 0) > now && !oddsPapiConfigured(),
   };
 }
 
@@ -179,7 +180,13 @@ async function pickDue(now: number): Promise<FixtureRow[]> {
   });
   const cutoff = new Date(now - STALE_MS).toISOString();
   const tracked = upcoming.slice(0, UNIVERSE);
-  const due = tracked.filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff);
+  let due = tracked.filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff);
+  // While API-Football is paused (daily quota), only matches OddsPapi can price are worth a try.
+  if (oddsPapiConfigured() && Number((await getMeta("blocked_until")) ?? 0) > now) {
+    const mappable: FixtureRow[] = [];
+    for (const f of due) if (await oddsPapiFixtureId(f)) mappable.push(f);
+    due = mappable;
+  }
   // Matches priced from the fallback get another go (every 20 min) once OddsPapi knows them.
   if (oddsPapiConfigured()) {
     const retryBefore = new Date(now - 20 * 60_000).toISOString();
@@ -208,7 +215,7 @@ export async function needsRefresh(): Promise<boolean> {
   const now = Date.now();
   const meta = await getAllMeta();
   let value: boolean;
-  if (Number(meta.blocked_until ?? 0) > now || Number(meta.refresh_lock ?? 0) > now) value = false;
+  if ((Number(meta.blocked_until ?? 0) > now && !oddsPapiConfigured()) || Number(meta.refresh_lock ?? 0) > now) value = false;
   else if (now - Number(meta.listed_at ?? 0) > LIST_EVERY_MS) value = true;
   else if (oddsPapiConfigured() && meta.niche_ids_v !== "2") value = true; // OddsPapi list not built yet
   else value = (await pickDue(now)).length > 0;
@@ -252,7 +259,8 @@ async function relist(now: number) {
 export async function refreshOdds(): Promise<{ priced: number; skipped?: string }> {
   await dbReady;
   const now = Date.now();
-  if (Number((await getMeta("blocked_until")) ?? 0) > now) return { priced: 0, skipped: "quota" };
+  let afPaused = Number((await getMeta("blocked_until")) ?? 0) > now;
+  if (afPaused && !oddsPapiConfigured()) return { priced: 0, skipped: "quota" };
   if (Number((await getMeta("refresh_lock")) ?? 0) > now) return { priced: 0, skipped: "locked" };
   await setMeta("refresh_lock", String(now + LOCK_MS));
 
@@ -261,7 +269,15 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
     // Drop matches that have kicked off.
     await db.delete(oddsFixtures).where(lt(oddsFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
 
-    if (now - Number((await getMeta("listed_at")) ?? 0) > LIST_EVERY_MS) await relist(now);
+    if (!afPaused && now - Number((await getMeta("listed_at")) ?? 0) > LIST_EVERY_MS) {
+      try {
+        await relist(now);
+      } catch (err) {
+        if (!(err instanceof ApiFootballError)) throw err;
+        afPaused = true;
+        await setMeta("blocked_until", String(nextUtcMidnight(Date.now())));
+      }
+    }
 
     // OddsPapi needs its fixture list (and our mapping onto it) before it can price a match.
     if (oddsPapiConfigured()) await ensureNicheFixtures().catch((err) => console.error("[odds] OddsPapi list failed:", err));
@@ -288,7 +304,18 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
           console.error("[odds] OddsPapi failed, falling back:", err);
         }
       }
-      if (!viaPapi) ({ odds, updatedAt, remaining } = await fetchFixtureOdds(f.fixtureId));
+      if (!viaPapi) {
+        // Fallback to API-Football — unless its daily quota is gone; then leave this match as it was.
+        if (afPaused) continue;
+        try {
+          ({ odds, updatedAt, remaining } = await fetchFixtureOdds(f.fixtureId));
+        } catch (err) {
+          if (!(err instanceof ApiFootballError)) throw err;
+          afPaused = true;
+          await setMeta("blocked_until", String(nextUtcMidnight(Date.now())));
+          continue;
+        }
+      }
       const fetchedAt = new Date().toISOString();
       const json = JSON.stringify(odds);
       await db
@@ -310,8 +337,8 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
       if (remaining !== null) {
         await setMeta("api_remaining", String(remaining));
         if (remaining <= KEEP_SPARE) {
+          afPaused = true;
           await setMeta("blocked_until", String(nextUtcMidnight(Date.now())));
-          break;
         }
       }
       // The rate limit only applies to API-Football; OddsPapi can go as fast as we like.
