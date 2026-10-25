@@ -2,7 +2,7 @@ import "server-only";
 import { eq, gt, lt, sql } from "drizzle-orm";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, oddsFixtures } from "@/lib/db/schema";
-import { LEAGUE_PRIORITY } from "./config";
+import { horizonMs, LEAGUE_PRIORITY, MAX_HORIZON_MS } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { fetchFixtureNicheOdds, OddsPapiError, oddsPapiConfigured } from "./oddspapi";
 import { ensureNicheFixtures } from "./niche-store";
@@ -19,8 +19,6 @@ import type { BookOdds, FixtureRecord } from "./detect";
 
 /** Re-price a fixture once its odds are this old. */
 const STALE_MS = 8 * 3_600_000;
-/** Only follow matches kicking off within this horizon. */
-const HORIZON_MS = 40 * 3_600_000;
 /** At most this many matches are followed at once (best leagues, soonest first). */
 const UNIVERSE = Number(process.env.ODDS_UNIVERSE) || 45;
 /** Odds calls per run — keeps a run inside the function time limit. */
@@ -148,10 +146,11 @@ async function syncFixtures(now: number) {
     .from(nicheFixtures)
     .where(
       sql`${nicheFixtures.startsAt} > ${new Date(now).toISOString()}
-        and ${nicheFixtures.startsAt} < ${new Date(now + HORIZON_MS).toISOString()}`,
+        and ${nicheFixtures.startsAt} < ${new Date(now + MAX_HORIZON_MS).toISOString()}`,
     )
     .all();
   for (const r of listed) {
+    if (new Date(r.startsAt).getTime() > now + horizonMs(r.leagueId)) continue;
     const fixtureId = toFixtureId(r.fixtureId);
     if (!Number.isFinite(fixtureId)) continue;
     await db
@@ -183,15 +182,15 @@ async function syncFixtures(now: number) {
  * ones, of which those with missing or old prices are due.
  */
 async function pickDue(now: number): Promise<FixtureRow[]> {
-  const upcoming = await db
+  const upcoming = (await db
     .select()
     .from(oddsFixtures)
     .where(
       sql`${oddsFixtures.startsAt} > ${new Date(now).toISOString()}
-        and ${oddsFixtures.startsAt} < ${new Date(now + HORIZON_MS).toISOString()}
+        and ${oddsFixtures.startsAt} < ${new Date(now + MAX_HORIZON_MS).toISOString()}
         and ${oddsFixtures.fixtureId} >= ${LEGACY_ID_LIMIT}`,
     )
-    .all();
+    .all()).filter((f) => new Date(f.startsAt).getTime() <= now + horizonMs(f.leagueId));
   const rank = (f: FixtureRow) => [LEAGUE_PRIORITY[f.leagueId] ?? 9, f.startsAt] as const;
   upcoming.sort((a, b) => {
     const [pa, ta] = rank(a);
@@ -225,19 +224,22 @@ export async function needsRefresh(): Promise<boolean> {
   if (Number(meta.niche_blocked_until ?? 0) > now || Number(meta.refresh_lock ?? 0) > now) value = false;
   else if (meta.niche_ids_v !== "2") value = true; // OddsPapi fixture list not built yet
   else {
-    const horizon = new Date(now + HORIZON_MS).toISOString();
-    const [listed, followed] = await Promise.all([
+    const within = (r: { leagueId: string; startsAt: string }) =>
+      new Date(r.startsAt).getTime() <= now + horizonMs(r.leagueId);
+    const [listedRows, followedRows] = await Promise.all([
       db
-        .select({ n: sql<number>`count(*)` })
+        .select({ leagueId: nicheFixtures.leagueId, startsAt: nicheFixtures.startsAt })
         .from(nicheFixtures)
-        .where(sql`${nicheFixtures.startsAt} > ${new Date(now).toISOString()} and ${nicheFixtures.startsAt} < ${horizon}`)
-        .get(),
+        .where(sql`${nicheFixtures.startsAt} > ${new Date(now).toISOString()} and ${nicheFixtures.startsAt} < ${new Date(now + MAX_HORIZON_MS).toISOString()}`)
+        .all(),
       db
         .select({ n: sql<number>`count(*)` })
         .from(oddsFixtures)
         .where(sql`${oddsFixtures.startsAt} > ${new Date(now).toISOString()} and ${oddsFixtures.fixtureId} >= ${LEGACY_ID_LIMIT}`)
         .get(),
     ]);
+    const listed = { n: listedRows.filter(within).length };
+    const followed = followedRows;
     value = (listed?.n ?? 0) > (followed?.n ?? 0) || (await pickDue(now)).length > 0;
   }
   needsCache = { at: now, value };

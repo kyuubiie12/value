@@ -3,7 +3,7 @@ import { eq, gt, inArray, lt, sql } from "drizzle-orm";
 import type { ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, playerNames } from "@/lib/db/schema";
-import { LEAGUE_PRIORITY } from "./config";
+import { horizonMs, LEAGUE_PRIORITY, MAX_HORIZON_MS } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { findPlayer } from "./player-model";
 import { fixtureHistory } from "./player-history";
@@ -29,7 +29,6 @@ const num = (v: string | undefined, d: number) => (v && Number(v) > 0 ? Number(v
 const UNIVERSE = () => num(process.env.ODDSPAPI_UNIVERSE, 8);
 const STALE_MS = () => num(process.env.ODDSPAPI_STALE_HOURS, 12) * 3_600_000;
 const RESERVE = () => num(process.env.ODDSPAPI_RESERVE, 15);
-const HORIZON_MS = 40 * 3_600_000;
 const LIST_EVERY_MS = 72 * 3_600_000;
 const LOCK_MS = 4 * 60_000;
 const MAX_PER_RUN = 6;
@@ -51,14 +50,14 @@ async function setMeta(key: string, value: string) {
 type Row = typeof nicheFixtures.$inferSelect;
 
 async function pickDue(now: number): Promise<Row[]> {
-  const upcoming = await db
+  const upcoming = (await db
     .select()
     .from(nicheFixtures)
     .where(
       sql`${nicheFixtures.startsAt} > ${new Date(now).toISOString()}
-        and ${nicheFixtures.startsAt} < ${new Date(now + HORIZON_MS).toISOString()}`,
+        and ${nicheFixtures.startsAt} < ${new Date(now + MAX_HORIZON_MS).toISOString()}`,
     )
-    .all();
+    .all()).filter((f) => new Date(f.startsAt).getTime() <= now + horizonMs(f.leagueId));
   upcoming.sort(
     (a, b) =>
       (LEAGUE_PRIORITY[a.leagueId] ?? 9) - (LEAGUE_PRIORITY[b.leagueId] ?? 9) ||

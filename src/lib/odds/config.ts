@@ -122,3 +122,12 @@ export const MAX_MAIN_ODDS = 4.5;
 
 /** Below this the "edge" is rounding noise, not something worth a stake. */
 export const MIN_EV = 0.005;
+
+/**
+ * How far ahead a match is followed. Domestic matches are priced from ~40 h out
+ * (that's when lines are settled); the European competitions are followed three
+ * days ahead, so a Tuesday/Wednesday night is visible from the weekend.
+ */
+const CONTINENTAL = new Set(["uefa-ucl", "uefa-uel", "uefa-uecl"]);
+export const MAX_HORIZON_MS = 72 * 3_600_000;
+export const horizonMs = (leagueId: string) => (CONTINENTAL.has(leagueId) ? 72 : 40) * 3_600_000;
