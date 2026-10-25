@@ -6,21 +6,18 @@ import {
   ArrowRight,
   Bell,
   CalendarDays,
+  Check,
+  RotateCcw,
   Search,
   ShieldCheck,
   Sparkles,
   Target,
   TrendingUp,
 } from "lucide-react";
-import type {
-  SettledPick,
-  TrackBreakdownDimension,
-  TrackBreakdownRow,
-  TrackRecordPoint,
-  TrackRecordStats,
-} from "@/types";
+import type { MarketType, SettledPick, TrackBreakdownDimension } from "@/types";
+import { breakdownOf, equityOf, statsOf } from "@/lib/track-stats";
 import { formatDate, formatOdds, formatPercent } from "@/lib/format";
-import { getLeague } from "@/lib/mock-data";
+import { getBookmaker, getLeague } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -43,23 +40,95 @@ const DIMS: { value: TrackBreakdownDimension; label: string }[] = [
   { value: "month", label: "Måned" },
 ];
 
-export function ResultsView({
-  stats,
-  equity,
-  picks,
-  breakdowns,
-}: {
-  stats: TrackRecordStats;
-  equity: TrackRecordPoint[];
-  picks: SettledPick[];
-  breakdowns: Record<TrackBreakdownDimension, TrackBreakdownRow[]>;
-}) {
+/** Odds ranges to tick off — pick any number of them. */
+const ODDS_BUCKETS = [
+  { key: "lt15", label: "Under 1,5", min: 0, max: 1.5 },
+  { key: "15-20", label: "1,5 – 2,0", min: 1.5, max: 2 },
+  { key: "20-30", label: "2,0 – 3,0", min: 2, max: 3 },
+  { key: "gt30", label: "3,0 og over", min: 3, max: Infinity },
+];
+
+const MARKET_GROUPS: { key: string; label: string; markets: MarketType[] }[] = [
+  { key: "result", label: "Kampresultat", markets: ["1x2", "double-chance", "draw-no-bet"] },
+  { key: "goals", label: "Mål", markets: ["over-under", "team-total", "btts", "correct-score"] },
+  { key: "handicap", label: "Handicap", markets: ["asian-handicap", "ht-ft"] },
+  { key: "corners", label: "Hjørnespark", markets: ["corners"] },
+  { key: "cards", label: "Kort", markets: ["cards"] },
+  { key: "players", label: "Spillere", markets: ["shots", "shots-on-target", "tackles", "fouls", "saves"] },
+];
+
+const toggle = (list: string[], key: string) =>
+  list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
+
+const num = (v: string) => {
+  const n = Number(v.replace(",", "."));
+  return v.trim() !== "" && Number.isFinite(n) ? n : null;
+};
+
+export function ResultsView({ picks: all }: { picks: SettledPick[] }) {
   const [dim, setDim] = React.useState<TrackBreakdownDimension>("market");
   const [q, setQ] = React.useState("");
   const [resultFilter, setResultFilter] = React.useState<"all" | "won" | "lost">(
     "all",
   );
   const [limit, setLimit] = React.useState(25);
+
+  // What the user ticks off — nothing ticked means "all".
+  const [oddsKeys, setOddsKeys] = React.useState<string[]>([]);
+  const [fromOdds, setFromOdds] = React.useState("");
+  const [toOdds, setToOdds] = React.useState("");
+  const [groupKeys, setGroupKeys] = React.useState<string[]>([]);
+  const [bookKeys, setBookKeys] = React.useState<string[]>([]);
+
+  const min = num(fromOdds);
+  const max = num(toOdds);
+  const active =
+    oddsKeys.length + groupKeys.length + bookKeys.length + (min !== null ? 1 : 0) + (max !== null ? 1 : 0);
+
+  const picks = React.useMemo(
+    () =>
+      all.filter((p) => {
+        if (oddsKeys.length) {
+          const inBucket = ODDS_BUCKETS.some(
+            (b) => oddsKeys.includes(b.key) && p.postedOdds >= b.min && p.postedOdds < b.max,
+          );
+          if (!inBucket) return false;
+        }
+        if (min !== null && p.postedOdds < min) return false;
+        if (max !== null && p.postedOdds > max) return false;
+        if (groupKeys.length) {
+          const ok = MARKET_GROUPS.some((g) => groupKeys.includes(g.key) && g.markets.includes(p.market));
+          if (!ok) return false;
+        }
+        if (bookKeys.length && !bookKeys.includes(p.bookmakerId)) return false;
+        return true;
+      }),
+    [all, oddsKeys, min, max, groupKeys, bookKeys],
+  );
+
+  const stats = React.useMemo(() => statsOf(picks), [picks]);
+  const equity = React.useMemo(() => equityOf(picks), [picks]);
+  const breakdowns = React.useMemo(
+    () => ({
+      market: breakdownOf("market", picks),
+      league: breakdownOf("league", picks),
+      edge: breakdownOf("edge", picks),
+      month: breakdownOf("month", picks),
+    }),
+    [picks],
+  );
+
+  const countIn = (test: (p: SettledPick) => boolean) => all.filter(test).length;
+  const bookIds = React.useMemo(() => [...new Set(all.map((p) => p.bookmakerId))], [all]);
+
+  const reset = () => {
+    setOddsKeys([]);
+    setFromOdds("");
+    setToOdds("");
+    setGroupKeys([]);
+    setBookKeys([]);
+    setLimit(25);
+  };
 
   const rows = breakdowns[dim] ?? [];
   const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.profitUnits)));
@@ -82,18 +151,127 @@ export function ResultsView({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Pick your own selection */}
+      <section className="rounded-card border border-line bg-surface p-4" aria-label="Udvælg spil">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight text-fg">Se kun de spil, du selv ville spille</h2>
+            <p className="mt-0.5 text-[12px] text-subtle">
+              Kryds af, så regnes afkast, hit rate og kurve kun for dem.{" "}
+              <span className="text-muted">
+                {active ? picks.length + " af " + all.length + " spil" : "Alle " + all.length + " spil"}
+              </span>
+            </p>
+          </div>
+          {active > 0 && (
+            <button
+              type="button"
+              onClick={reset}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] border border-line bg-surface-2 px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:border-line-strong hover:text-fg"
+            >
+              <RotateCcw className="size-3.5" />
+              Nulstil
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-col gap-4">
+          <FilterGroup label="Odds">
+            {ODDS_BUCKETS.map((b) => (
+              <Chip
+                key={b.key}
+                active={oddsKeys.includes(b.key)}
+                onClick={() => setOddsKeys((l) => toggle(l, b.key))}
+                count={countIn((p) => p.postedOdds >= b.min && p.postedOdds < b.max)}
+              >
+                {b.label}
+              </Chip>
+            ))}
+            <span className="ml-1 flex items-center gap-1.5 text-[12px] text-subtle">
+              eller fra
+              <Input
+                inputMode="decimal"
+                value={fromOdds}
+                onChange={(e) => setFromOdds(e.target.value)}
+                placeholder="1,50"
+                aria-label="Laveste odds"
+                className="h-8 w-[68px] px-2 text-center text-[12px]"
+              />
+              til
+              <Input
+                inputMode="decimal"
+                value={toOdds}
+                onChange={(e) => setToOdds(e.target.value)}
+                placeholder="2,00"
+                aria-label="Højeste odds"
+                className="h-8 w-[68px] px-2 text-center text-[12px]"
+              />
+            </span>
+          </FilterGroup>
+
+          <FilterGroup label="Marked">
+            {MARKET_GROUPS.map((g) => {
+              const count = countIn((p) => g.markets.includes(p.market));
+              return count > 0 ? (
+                <Chip
+                  key={g.key}
+                  active={groupKeys.includes(g.key)}
+                  onClick={() => setGroupKeys((l) => toggle(l, g.key))}
+                  count={count}
+                >
+                  {g.label}
+                </Chip>
+              ) : null;
+            })}
+          </FilterGroup>
+
+          {bookIds.length > 1 && (
+            <FilterGroup label="Bookmaker">
+              {bookIds.map((id) => (
+                <Chip
+                  key={id}
+                  active={bookKeys.includes(id)}
+                  onClick={() => setBookKeys((l) => toggle(l, id))}
+                  count={countIn((p) => p.bookmakerId === id)}
+                >
+                  {getBookmaker(id)?.name ?? id}
+                </Chip>
+              ))}
+            </FilterGroup>
+          )}
+        </div>
+      </section>
+
+      {picks.length === 0 ? (
+        <div className="rounded-card border border-dashed border-line px-5 py-10 text-center">
+          <p className="text-[14px] font-semibold text-fg">Ingen afgjorte spil i dit udvalg</p>
+          <p className="mx-auto mt-1 max-w-sm text-[12px] leading-relaxed text-muted">
+            Prøv at fjerne et kryds eller gøre odds-intervallet bredere.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* Trust hero */}
       <div className="relative overflow-hidden rounded-card-lg border border-primary/25 bg-surface">
         <div className="pointer-events-none absolute -right-16 -top-24 size-64 rounded-full bg-primary/12 blur-3xl" />
         <div className="relative flex flex-col gap-1 p-5">
           <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-primary-strong">
             <ShieldCheck className="size-3.5" />
-            Verificeret track record · siden {formatDate(stats.since)}
+            {active ? "Dit udvalg" : "Verificeret track record"} · siden {formatDate(stats.since)}
           </p>
           <p className="max-w-2xl text-[13px] leading-relaxed text-muted">
-            Hvis du havde fulgt <span className="text-fg">hver eneste</span> value
-            bet AI&apos;en har lagt op — med den anbefalede indsats — så ville du
-            stå her nu:
+            {active ? (
+              <>
+                Hvis du <span className="text-fg">kun</span> havde fulgt de spil, der passer
+                til dit udvalg — 1 enhed pr. spil — så ville du stå her nu:
+              </>
+            ) : (
+              <>
+                Hvis du havde fulgt <span className="text-fg">hver eneste</span> value
+                bet AI&apos;en har lagt op — med den anbefalede indsats — så ville du
+                stå her nu:
+              </>
+            )}
           </p>
         </div>
         <div className="relative grid grid-cols-2 border-t border-line md:grid-cols-4">
@@ -356,7 +534,58 @@ export function ResultsView({
           )}
         </div>
       </section>
+      </>
+      )}
     </div>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <p className="w-20 shrink-0 text-[11px] font-medium uppercase tracking-wide text-subtle">{label}</p>
+      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+/** A tick-box chip: filled and ticked when on. */
+function Chip({
+  active,
+  onClick,
+  count,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
+        active
+          ? "border-primary/45 bg-primary/12 text-primary-strong"
+          : "border-line bg-surface-2 text-muted hover:border-line-strong hover:text-fg",
+      )}
+    >
+      <span
+        className={cn(
+          "grid size-3.5 place-items-center rounded-[4px] border",
+          active ? "border-primary bg-primary text-primary-contrast" : "border-line-strong",
+        )}
+        aria-hidden
+      >
+        {active && <Check className="size-2.5" strokeWidth={3.5} />}
+      </span>
+      {children}
+      {count !== undefined && <span className="tabular text-[10.5px] text-subtle">{count}</span>}
+    </button>
   );
 }
 

@@ -12,16 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ResultsPage() {
-  const [stats, equity, picks, byMarket, byLeague, byEdge, byMonth] =
-    await Promise.all([
-      trackRecordService.getStats(),
-      trackRecordService.getEquityCurve(),
-      trackRecordService.listPicks(),
-      trackRecordService.getBreakdown("market"),
-      trackRecordService.getBreakdown("league"),
-      trackRecordService.getBreakdown("edge"),
-      trackRecordService.getBreakdown("month"),
-    ]);
+  const [stats, picks] = await Promise.all([
+    trackRecordService.getStats(),
+    trackRecordService.listPicks(),
+  ]);
 
   return (
     <div className="flex flex-col gap-7">
@@ -40,17 +34,7 @@ export default async function ResultsPage() {
           }
         />
       ) : (
-      <ResultsView
-        stats={stats}
-        equity={equity}
-        picks={picks}
-        breakdowns={{
-          market: byMarket,
-          league: byLeague,
-          edge: byEdge,
-          month: byMonth,
-        }}
-      />
+        <ResultsView picks={picks} />
       )}
     </div>
   );
