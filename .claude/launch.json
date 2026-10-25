@@ -4,23 +4,8 @@
     {
       "name": "valuebet-ai",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
-    },
-    {
-      "name": "mentor-site",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": [
-        "--yes",
-        "serve",
-        "C:/Users/Vikto/Desktop/Mentor site",
-        "-l",
-        "4173"
-      ],
-      "port": 4173
     }
   ]
 }
