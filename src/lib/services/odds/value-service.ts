@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import type { ValueOpportunity } from "@/types";
 import { filterOpportunities } from "@/lib/filtering";
+import { hasStatistics } from "@/lib/explain";
 import { db, dbReady } from "@/lib/db";
 import { opportunityReads } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/auth/session";
@@ -35,7 +36,8 @@ const detectAll = cache(async (): Promise<ValueOpportunity[]> => {
     loadPricedFixtures(),
     oddsPapiConfigured() ? loadNicheOpportunities() : Promise.resolve([]),
   ]);
-  return [...fixtures.flatMap(detectValue), ...niche].sort(
+  // A bet is only shown when the teams' or the player's own numbers explain it.
+  return [...fixtures.flatMap(detectValue), ...niche].filter(hasStatistics).sort(
     (a, b) => b.edgePercent - a.edgePercent,
   );
 });

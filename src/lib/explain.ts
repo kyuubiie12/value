@@ -118,6 +118,12 @@ function formPoints(o: ValueOpportunity): string[] {
   return [];
 }
 
+/** True when the bet can be explained with the teams' or player's own numbers. */
+export function hasStatistics(o: ValueOpportunity): boolean {
+  if (o.fairBasis === "history") return Boolean(o.playerStats?.history);
+  return formPoints(o).length > 0;
+}
+
 export function explainOpportunity(o: ValueOpportunity): Explanation {
   const bookName = getBookmaker(o.bestBookmakerId)?.name ?? o.bestBookmakerId;
   if (o.fairBasis === "history" && o.playerStats?.history) return explainHistory(o, bookName);

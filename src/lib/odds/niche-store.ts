@@ -1,8 +1,8 @@
 import "server-only";
-import { eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, like, lt, sql } from "drizzle-orm";
 import type { ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
-import { feedMeta, nicheFixtures, playerNames } from "@/lib/db/schema";
+import { feedMeta, nicheFixtures, playerNames, trackPicks } from "@/lib/db/schema";
 import { horizonMs, LEAGUE_PRIORITY, MAX_HORIZON_MS } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { findPlayer } from "./player-model";
@@ -154,6 +154,10 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
     // One-time: price everything again so props from the old (price-gap) detector are replaced.
     if (meta.niche_opps_v !== "2") {
       await db.update(nicheFixtures).set({ oppsJson: null, fetchedAt: null });
+      // Waiting prop picks came from that detector too — proven ones are saved again on the next pass.
+      await db
+        .delete(trackPicks)
+        .where(and(eq(trackPicks.status, "pending"), like(trackPicks.gradeJson, '%"type":"prop"%')));
       await setMeta("niche_opps_v", "2");
     }
     await db.delete(nicheFixtures).where(lt(nicheFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
