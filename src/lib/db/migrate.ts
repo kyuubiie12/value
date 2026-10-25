@@ -177,6 +177,7 @@ const ADD_COLUMNS = [
   "ALTER TABLE niche_fixtures ADD COLUMN home_id INTEGER",
   "ALTER TABLE niche_fixtures ADD COLUMN away_id INTEGER",
   "ALTER TABLE odds_fixtures ADD COLUMN form_json TEXT",
+  "ALTER TABLE odds_fixtures ADD COLUMN source TEXT",
 ];
 
 let done: Promise<void> | null = null;

@@ -151,6 +151,8 @@ export const oddsFixtures = sqliteTable("odds_fixtures", {
   /** Latest prices; null until the first odds call for this fixture. */
   /** Both teams' recent matches (JSON) — the form behind the explanation. */
   formJson: text("form_json"),
+  /** Where the prices came from: "papi" (OddsPapi) or "af" (API-Football fallback). */
+  source: text("source"),
   oddsJson: text("odds_json"),
   /** Prices at first sight — the baseline for opening odds / price movement. */
   openJson: text("open_json"),

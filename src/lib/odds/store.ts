@@ -10,8 +10,9 @@ import {
 import { LEAGUE_PRIORITY } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { fetchFixtureNicheOdds, oddsPapiConfigured } from "./oddspapi";
+import { ensureNicheFixtures } from "./niche-store";
 import { toBookOdds, type RawMainOdds } from "./oddspapi-main";
-import { matchTeam } from "./player-stats-store";
+import { looseSameTeam, matchTeam } from "./player-stats-store";
 import { fixtureForm } from "./team-form";
 import type { BookOdds, FixtureRecord } from "./detect";
 
@@ -146,9 +147,11 @@ type FixtureRow = typeof oddsFixtures.$inferSelect;
 async function oddsPapiFixtureId(f: FixtureRow): Promise<string | null> {
   const rows = await db.select().from(nicheFixtures).where(eq(nicheFixtures.leagueId, f.leagueId)).all();
   const near = rows.filter((r) => Math.abs(new Date(r.startsAt).getTime() - new Date(f.startsAt).getTime()) < 3 * 3_600_000);
-  const home = matchTeam(f.homeTeam, near.map((r) => ({ id: Number(r.homeId ?? 0), name: r.homeTeam })));
-  if (!home) return null;
-  const hit = near.find((r) => r.homeId === home.id && matchTeam(f.awayTeam, [{ id: 1, name: r.awayTeam }]));
+  const exact = (() => {
+    const home = matchTeam(f.homeTeam, near.map((r) => ({ id: Number(r.homeId ?? 0), name: r.homeTeam })));
+    return home ? near.find((r) => r.homeId === home.id && matchTeam(f.awayTeam, [{ id: 1, name: r.awayTeam }])) : undefined;
+  })();
+  const hit = exact ?? near.find((r) => looseSameTeam(f.homeTeam, r.homeTeam) && looseSameTeam(f.awayTeam, r.awayTeam));
   return hit?.fixtureId ?? null;
 }
 
@@ -175,9 +178,16 @@ async function pickDue(now: number): Promise<FixtureRow[]> {
     return pa - pb || ta.localeCompare(tb);
   });
   const cutoff = new Date(now - STALE_MS).toISOString();
-  const due = upcoming
-    .slice(0, UNIVERSE)
-    .filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff);
+  const tracked = upcoming.slice(0, UNIVERSE);
+  const due = tracked.filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff);
+  // Matches priced from the fallback get another go (every 20 min) once OddsPapi knows them.
+  if (oddsPapiConfigured()) {
+    const retryBefore = new Date(now - 20 * 60_000).toISOString();
+    for (const f of tracked) {
+      if (due.includes(f) || f.source === "papi" || !f.fetchedAt || f.fetchedAt >= retryBefore) continue;
+      if (await oddsPapiFixtureId(f)) due.push(f);
+    }
+  }
   // Unpriced first, then soonest — a tight budget buys the most useful matches.
   due.sort(
     (a, b) =>
@@ -200,6 +210,7 @@ export async function needsRefresh(): Promise<boolean> {
   let value: boolean;
   if (Number(meta.blocked_until ?? 0) > now || Number(meta.refresh_lock ?? 0) > now) value = false;
   else if (now - Number(meta.listed_at ?? 0) > LIST_EVERY_MS) value = true;
+  else if (oddsPapiConfigured() && meta.niche_ids_v !== "2") value = true; // OddsPapi list not built yet
   else value = (await pickDue(now)).length > 0;
   needsCache = { at: now, value };
   return value;
@@ -252,6 +263,9 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
 
     if (now - Number((await getMeta("listed_at")) ?? 0) > LIST_EVERY_MS) await relist(now);
 
+    // OddsPapi needs its fixture list (and our mapping onto it) before it can price a match.
+    if (oddsPapiConfigured()) await ensureNicheFixtures().catch((err) => console.error("[odds] OddsPapi list failed:", err));
+
     const due = await pickDue(now);
 
     for (const f of due.slice(0, oddsPapiConfigured() ? MAX_PER_RUN * 2 : MAX_PER_RUN)) {
@@ -285,6 +299,7 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
           oddsUpdatedAt: updatedAt,
           firstFetchedAt: f.firstFetchedAt ?? fetchedAt,
           fetchedAt,
+          source: viaPapi ? "papi" : "af",
         })
         .where(eq(oddsFixtures.fixtureId, f.fixtureId));
       priced++;

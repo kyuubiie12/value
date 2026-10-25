@@ -58,6 +58,17 @@ export default async function ValueBetsPage() {
     .filter((o) => o.expectedValue >= settings.minEdge)
     .sort((a, b) => b.edgePercent - a.edgePercent);
 
+  // Value that exists, but only at bookmakers the user hasn't ticked on their profile.
+  const skipped = new Map<string, number>();
+  for (const o of raw) {
+    if (settings.activeBookmakerIds.includes(o.bestBookmakerId) || o.expectedValue < settings.minEdge) continue;
+    skipped.set(o.bestBookmakerId, (skipped.get(o.bestBookmakerId) ?? 0) + 1);
+  }
+  const skippedList = [...skipped]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([id, n]) => `${bookmakers.find((b) => b.id === id)?.name ?? id} (${n})`);
+
   return (
     <div className="flex flex-col gap-6">
       <AutoFollowSync enabled={settings.autoFollow} />
@@ -75,6 +86,16 @@ export default async function ValueBetsPage() {
       {/* The track record is sample data — only show it next to the sample feed. */}
       {feed.source === "demo" && <TrustStrip stats={trackStats} />}
       <FeedStatusBar status={feed} />
+
+      {skippedList.length > 0 && (
+        <p className="rounded-[var(--radius-sm)] border border-line bg-surface/50 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-muted">
+          Der er også value hos bookmakere, du ikke har valgt: <span className="text-fg">{skippedList.join(", ")}</span>.{" "}
+          <Link href="/profile" className="font-medium text-primary-strong hover:underline">
+            Tilføj dem under Profil → Mine bookmakere
+          </Link>
+          , hvis du har konto dér.
+        </p>
+      )}
 
       {opportunities.length === 0 && feed.source === "live" && feed.pricedFixtures === 0 ? (
         <EmptyState

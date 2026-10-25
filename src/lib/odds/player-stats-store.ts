@@ -57,6 +57,21 @@ export function matchTeam(
   return hits.length === 1 ? hits[0] : null;
 }
 
+/** Words that say little about which club it is. */
+const GENERIC = new Set(["united", "city", "town", "club", "real", "de", "la", "the", "and", "sporting", "rovers", "albion", "wanderers", "tsg", "vfb", "vfl", "rb", "osc", "1899", "1904", "1907", "04", "05", "09"]);
+const significant = (name: string) => norm(name).split(" ").filter((t) => t && !GENERIC.has(t) && !/^d+$/.test(t));
+
+/**
+ * The same club under two sources' spellings ("Athletic Club" / "Athletic Bilbao",
+ * "1899 Hoffenheim" / "TSG Hoffenheim"): they share a distinctive word. Only used
+ * once the league and kick-off already agree, so a loose test is safe.
+ */
+export function looseSameTeam(a: string, b: string): boolean {
+  if (norm(a) === norm(b)) return true;
+  const sb = new Set(significant(b));
+  return significant(a).some((t) => sb.has(t));
+}
+
 async function meta(key: string): Promise<string | null> {
   const row = await db.select().from(feedMeta).where(eq(feedMeta.key, key)).get();
   return row?.value ?? null;

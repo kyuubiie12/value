@@ -84,7 +84,7 @@ export async function needsNicheRefresh(): Promise<boolean> {
   const meta = await getAllMeta();
   let value: boolean;
   if (Number(meta.niche_blocked_until ?? 0) > now || Number(meta.niche_lock ?? 0) > now) value = false;
-  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS) value = true;
+  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2") value = true;
   else value = (await pickDue(now)).length > 0;
   needsCache = { at: now, value };
   return value;
@@ -114,6 +114,33 @@ function stop(remaining: number | null): boolean {
   return remaining !== null && remaining <= RESERVE();
 }
 
+/**
+ * Make sure the OddsPapi fixture list (with team ids) is fresh — it is what maps
+ * our matches to OddsPapi and SportAPI. Returns false if the quota says stop.
+ */
+export async function ensureNicheFixtures(): Promise<boolean> {
+  await dbReady;
+  const now = Date.now();
+  const meta = await getAllMeta();
+  if (now - Number(meta.niche_listed_at ?? 0) <= LIST_EVERY_MS && meta.niche_ids_v === "2") return true;
+  for (const tid of Object.keys(TOURNAMENT_LEAGUES).map(Number)) {
+    const { fixtures, remaining } = await listTournamentFixtures(tid);
+    for (const f of fixtures) {
+      await db
+        .insert(nicheFixtures)
+        .values({ ...f })
+        .onConflictDoUpdate({
+          target: nicheFixtures.fixtureId,
+          set: { startsAt: f.startsAt, homeTeam: f.homeTeam, awayTeam: f.awayTeam, homeId: f.homeId, awayId: f.awayId },
+        });
+    }
+    if (stop(remaining)) return false;
+  }
+  await setMeta("niche_listed_at", String(now));
+  await setMeta("niche_ids_v", "2");
+  return true;
+}
+
 /** Re-list fixtures (when due), then price the stalest matches. One run is bounded. */
 export async function refreshNiche(): Promise<{ priced: number; skipped?: string }> {
   await dbReady;
@@ -129,30 +156,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
 
     const markets: NicheMarkets = (await loadMarketDicts()).niche;
 
-    // Re-list once after the team-id columns were added, so existing rows get their ids.
-    if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2") {
-      for (const tid of Object.keys(TOURNAMENT_LEAGUES).map(Number)) {
-        const { fixtures, remaining } = await listTournamentFixtures(tid);
-        for (const f of fixtures) {
-          await db
-            .insert(nicheFixtures)
-            .values({ ...f })
-            .onConflictDoUpdate({
-              target: nicheFixtures.fixtureId,
-              set: {
-                startsAt: f.startsAt,
-                homeTeam: f.homeTeam,
-                awayTeam: f.awayTeam,
-                homeId: f.homeId,
-                awayId: f.awayId,
-              },
-            });
-        }
-        if (stop(remaining)) return await blocked(priced);
-      }
-      await setMeta("niche_listed_at", String(now));
-      await setMeta("niche_ids_v", "2");
-    }
+    if (!(await ensureNicheFixtures())) return await blocked(priced);
 
     for (const f of (await pickDue(now)).slice(0, MAX_PER_RUN)) {
       if (Date.now() - now > RUN_BUDGET_MS) break;

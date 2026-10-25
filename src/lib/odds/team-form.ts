@@ -4,7 +4,7 @@ import type { TeamFormMatch } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures } from "@/lib/db/schema";
 import { recentMatchesCached } from "./player-history";
-import { matchTeam } from "./player-stats-store";
+import { looseSameTeam, matchTeam } from "./player-stats-store";
 import { sportApiConfigured, sportApiRemaining } from "./sportapi";
 
 /**
@@ -41,8 +41,14 @@ export async function fixtureForm(
 
   try {
     const teams = await teamIdsOf(leagueId);
-    const home = matchTeam(homeTeam, teams);
-    const away = matchTeam(awayTeam, teams);
+    const find = (name: string) => {
+      const exact = matchTeam(name, teams);
+      if (exact) return exact;
+      const loose = teams.filter((t) => looseSameTeam(name, t.name));
+      return loose.length === 1 ? loose[0] : null; // ambiguous (Manchester …) → don't guess
+    };
+    const home = find(homeTeam);
+    const away = find(awayTeam);
     if (!home || !away) return null;
     const toForm = async (id: number) =>
       (await recentMatchesCached(id, 10)).slice(0, FORM_MATCHES).map(
