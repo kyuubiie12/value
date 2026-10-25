@@ -192,6 +192,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         opps.sort((x, y) => y.edgePercent - x.edgePercent);
         opps.splice(15);
       }
+      console.log(`[niche] ${f.homeTeam}–${f.awayTeam}: ${candidates.length} candidates, record ${history ? history.players.length + " players" : "unavailable"}, ${opps.length} proven`);
       if (candidates.length && !history) {
         // Player records unavailable right now (allowance / provider hiccup): keep the props we
         // already proved for this match instead of wiping them, and look again in an hour.
