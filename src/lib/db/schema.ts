@@ -174,6 +174,9 @@ export const nicheFixtures = sqliteTable("niche_fixtures", {
   startsAt: text("starts_at").notNull(), // ISO
   homeTeam: text("home_team").notNull(),
   awayTeam: text("away_team").notNull(),
+  /** OddsPapi participant ids = the team ids SportAPI uses. */
+  homeId: integer("home_id"),
+  awayId: integer("away_id"),
   oppsJson: text("opps_json"),
   fetchedAt: text("fetched_at"),
 });

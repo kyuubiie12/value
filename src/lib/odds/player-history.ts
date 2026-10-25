@@ -7,6 +7,13 @@ import { fetchMatchPlayers, fetchTeamFinished, type FinishedFixture } from "@/li
 import type { PlayerMatchStat } from "@/lib/track/grade";
 import { resolveFixtureTeams } from "./player-stats-store";
 import { HISTORY_MATCHES, type Appearance } from "./history-model";
+import {
+  matchPlayers as sportApiMatchPlayers,
+  sportApiConfigured,
+  sportApiRemaining,
+  SportApiError,
+  teamRecentMatches,
+} from "./sportapi";
 
 /**
  * Each player's last matches, for the "proven value" check. A team's recent
@@ -82,14 +89,79 @@ async function playersOfMatch(fixtureId: number): Promise<StoredPlayer[]> {
   return players;
 }
 
+const SPORTAPI_RESERVE = Number(process.env.SPORTAPI_RESERVE) || 40;
+
+/** SportAPI path: team ids straight from the fixture, full player names, cards from incidents. */
+async function sportApiHistory(
+  ids: { homeId?: number | null; awayId?: number | null },
+): Promise<{ players: HistoryPlayer[]; season: number } | null> {
+  const teamIds = [ids.homeId, ids.awayId].filter((x): x is number => typeof x === "number");
+  if (!teamIds.length) return null;
+  if (Date.now() < Number((await meta("sa_blocked_until")) ?? 0)) return null;
+  const want = matchesWanted();
+  const byPlayer = new Map<number, HistoryPlayer>();
+  try {
+    for (const teamId of teamIds) {
+      const key = `sa_recent_${teamId}_${want}`;
+      let recent: { id: number; date: string }[];
+      const cached = await meta(key);
+      if (cached && Date.now() - Number((await meta(`${key}_at`)) ?? 0) < RECENT_TTL_MS) {
+        recent = JSON.parse(cached);
+      } else {
+        recent = await teamRecentMatches(teamId, want);
+        await setMeta(key, JSON.stringify(recent));
+        await setMeta(`${key}_at`, String(Date.now()));
+      }
+      for (const m of recent) {
+        // Sofascore ids live in their own (negative) key space next to API-Football's.
+        const cacheId = -m.id;
+        const row = await db.select().from(matchPlayers).where(eq(matchPlayers.fixtureId, cacheId)).get();
+        let players: StoredPlayer[];
+        if (row) {
+          players = JSON.parse(row.playersJson) as StoredPlayer[];
+        } else {
+          const left = sportApiRemaining();
+          if (left !== null && left < SPORTAPI_RESERVE) throw new SportApiError("SportAPI allowance nearly spent", true);
+          players = await sportApiMatchPlayers(m.id);
+          await db
+            .insert(matchPlayers)
+            .values({ fixtureId: cacheId, playersJson: JSON.stringify(players), fetchedAt: new Date().toISOString() })
+            .onConflictDoNothing();
+        }
+        for (const p of players) {
+          if (p.teamId !== teamId) continue;
+          const entry = byPlayer.get(p.id) ?? { id: p.id, name: p.name, appearances: [] };
+          entry.appearances.push({ fixtureId: m.id, date: m.date, stat: p.stat });
+          byPlayer.set(p.id, entry);
+        }
+      }
+    }
+  } catch (err) {
+    if (err instanceof SportApiError && err.blocked) {
+      // Not subscribed / allowance spent: fall back to the other source for a while.
+      await setMeta("sa_blocked_until", String(Date.now() + 6 * 3_600_000));
+    } else {
+      console.error("[history] SportAPI failed:", err);
+    }
+    return null;
+  }
+  for (const p of byPlayer.values()) p.appearances.sort((a, b) => b.date.localeCompare(a.date));
+  return byPlayer.size ? { players: [...byPlayer.values()], season: new Date().getUTCFullYear() } : null;
+}
+
 /** Everyone who played for either team in their last matches, with per-match lines. */
 export async function fixtureHistory(
   leagueId: string,
   homeTeam: string,
   awayTeam: string,
+  ids: { homeId?: number | null; awayId?: number | null } = {},
 ): Promise<{ players: HistoryPlayer[]; season: number } | null> {
-  if (!apiFootballConfigured()) return null;
   await dbReady;
+  if (sportApiConfigured()) {
+    const viaSportApi = await sportApiHistory(ids);
+    if (viaSportApi) return viaSportApi;
+  }
+  if (!apiFootballConfigured()) return null;
   if (Date.now() < Number((await meta("hist_blocked_until")) ?? 0)) return null;
   if (!(await quotaOk())) return null;
 

@@ -85,6 +85,9 @@ export interface NicheFixture {
   startsAt: string;
   homeTeam: string;
   awayTeam: string;
+  /** Team ids (OddsPapi participant = SportAPI team), when known. */
+  homeId?: number | null;
+  awayId?: number | null;
 }
 
 /** Odds outside this window are mostly rung-noise (very short or long-shot ladder steps). */

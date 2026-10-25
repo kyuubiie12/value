@@ -13,7 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 // The odds refresh runs after the response (see ValueService) and paces itself
 // to the provider's rate limit, so give it room.
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export default async function AppLayout({
   children,

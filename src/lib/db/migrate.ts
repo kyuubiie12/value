@@ -172,7 +172,11 @@ const STATEMENTS = [
  * touch an existing table, so these are applied one by one and a "duplicate
  * column" error (fresh DBs already have it) is expected and ignored.
  */
-const ADD_COLUMNS = ["ALTER TABLE users ADD COLUMN last_login_at TEXT"];
+const ADD_COLUMNS = [
+  "ALTER TABLE users ADD COLUMN last_login_at TEXT",
+  "ALTER TABLE niche_fixtures ADD COLUMN home_id INTEGER",
+  "ALTER TABLE niche_fixtures ADD COLUMN away_id INTEGER",
+];
 
 let done: Promise<void> | null = null;
 

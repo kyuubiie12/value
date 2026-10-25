@@ -52,7 +52,12 @@ interface RawFixture {
   fixtureId: string;
   startTime: number;
   status?: { live?: boolean; statusId?: number };
-  participants: { participant1Name: string; participant2Name: string };
+  participants: {
+    participant1Id?: number;
+    participant2Id?: number;
+    participant1Name: string;
+    participant2Name: string;
+  };
 }
 
 /** Upcoming, not-yet-started fixtures of one tournament. */
@@ -70,6 +75,8 @@ export async function listTournamentFixtures(tournamentId: number) {
       startsAt: new Date(f.startTime * 1000).toISOString(),
       homeTeam: f.participants.participant1Name,
       awayTeam: f.participants.participant2Name,
+      homeId: f.participants.participant1Id ?? null,
+      awayId: f.participants.participant2Id ?? null,
     }));
   return { fixtures, remaining };
 }

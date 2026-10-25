@@ -34,6 +34,8 @@ const LIST_EVERY_MS = 72 * 3_600_000;
 const MARKETS_EVERY_MS = 30 * 24 * 3_600_000;
 const LOCK_MS = 4 * 60_000;
 const MAX_PER_RUN = 6;
+/** A run stops starting new matches after this long (history for one match takes ~30 s). */
+const RUN_BUDGET_MS = 200_000;
 
 async function getAllMeta(): Promise<Record<string, string>> {
   const rows = await db.select().from(feedMeta).all();
@@ -137,7 +139,8 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
       if (stop(res.remaining)) return await blocked(priced);
     }
 
-    if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS) {
+    // Re-list once after the team-id columns were added, so existing rows get their ids.
+    if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "1") {
       for (const tid of Object.keys(TOURNAMENT_LEAGUES).map(Number)) {
         const { fixtures, remaining } = await listTournamentFixtures(tid);
         for (const f of fixtures) {
@@ -146,15 +149,23 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
             .values({ ...f })
             .onConflictDoUpdate({
               target: nicheFixtures.fixtureId,
-              set: { startsAt: f.startsAt, homeTeam: f.homeTeam, awayTeam: f.awayTeam },
+              set: {
+                startsAt: f.startsAt,
+                homeTeam: f.homeTeam,
+                awayTeam: f.awayTeam,
+                homeId: f.homeId,
+                awayId: f.awayId,
+              },
             });
         }
         if (stop(remaining)) return await blocked(priced);
       }
       await setMeta("niche_listed_at", String(now));
+      await setMeta("niche_ids_v", "1");
     }
 
     for (const f of (await pickDue(now)).slice(0, MAX_PER_RUN)) {
+      if (Date.now() - now > RUN_BUDGET_MS) break;
       const { odds, remaining } = await fetchFixtureNicheOdds(f.fixtureId);
       const at = new Date().toISOString();
       const candidates = listPropCandidates(f, odds, markets, at);
@@ -162,7 +173,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
       // A prop is only shown when the player's own recent matches prove the price too big.
       // No record (no data access, too few matches) → nothing is shown for him.
       const opps: ValueOpportunity[] = [];
-      const history = candidates.length ? await fixtureHistory(f.leagueId, f.homeTeam, f.awayTeam) : null;
+      const history = candidates.length ? await fixtureHistory(f.leagueId, f.homeTeam, f.awayTeam, { homeId: f.homeId, awayId: f.awayId }) : null;
       if (history) {
         const names = await resolveNames([...new Set(candidates.map((c) => c.playerId))]);
         const roster = rosterFromHistory(history.players);
