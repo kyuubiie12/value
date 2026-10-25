@@ -22,13 +22,13 @@ export default async function AppLayout({
 }) {
   const user = await requireUser();
 
-  const settings = await settingsService.get();
-  if (!settings.onboardingComplete) redirect("/onboarding");
-
-  const [stats, allNotifications] = await Promise.all([
+  // Independent reads go out together — each one is a round trip to the database.
+  const [settings, stats, allNotifications] = await Promise.all([
+    settingsService.get(),
     portfolioService.getStats(),
     notificationService.list(),
   ]);
+  if (!settings.onboardingComplete) redirect("/onboarding");
 
   // Only show notifications the user has ticked on.
   const notifications = filterNotifications(allNotifications, settings);

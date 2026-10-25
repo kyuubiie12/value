@@ -50,6 +50,11 @@ async function setMeta(key: string, value: string) {
     .onConflictDoUpdate({ target: feedMeta.key, set: { value } });
 }
 
+async function getAllMeta(): Promise<Record<string, string>> {
+  const rows = await db.select().from(feedMeta).all();
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+}
+
 function parse(json: string | null): BookOdds | null {
   if (!json) return null;
   try {
@@ -98,7 +103,7 @@ export interface FeedStatus {
 export async function feedStatus(): Promise<FeedStatus> {
   await dbReady;
   const now = Date.now();
-  const [latest, count, lock, blocked] = await Promise.all([
+  const [latest, count, meta] = await Promise.all([
     db
       .select({ at: sql<string | null>`max(${oddsFixtures.fetchedAt})` })
       .from(oddsFixtures)
@@ -110,14 +115,13 @@ export async function feedStatus(): Promise<FeedStatus> {
         sql`${oddsFixtures.startsAt} > ${new Date(now).toISOString()} and ${oddsFixtures.fetchedAt} is not null`,
       )
       .get(),
-    getMeta("refresh_lock"),
-    getMeta("blocked_until"),
+    getAllMeta(),
   ]);
   return {
     updatedAt: latest?.at ?? null,
     pricedFixtures: count?.n ?? 0,
-    refreshing: Number(lock ?? 0) > now,
-    quotaSpent: Number(blocked ?? 0) > now,
+    refreshing: Number(meta.refresh_lock ?? 0) > now,
+    quotaSpent: Number(meta.blocked_until ?? 0) > now,
   };
 }
 
@@ -155,14 +159,22 @@ async function pickDue(now: number): Promise<FixtureRow[]> {
   return due;
 }
 
+let needsCache: { at: number; value: boolean } | null = null;
+const NEEDS_TTL_MS = 30_000;
+
 /** True when a refresh would do something — cheap check used before scheduling one. */
 export async function needsRefresh(): Promise<boolean> {
+  // Every page view asks; answer from memory for a few seconds instead of 4+ round trips.
+  if (needsCache && Date.now() - needsCache.at < NEEDS_TTL_MS) return needsCache.value;
   await dbReady;
   const now = Date.now();
-  if (Number((await getMeta("blocked_until")) ?? 0) > now) return false;
-  if (Number((await getMeta("refresh_lock")) ?? 0) > now) return false;
-  if (now - Number((await getMeta("listed_at")) ?? 0) > LIST_EVERY_MS) return true;
-  return (await pickDue(now)).length > 0;
+  const meta = await getAllMeta();
+  let value: boolean;
+  if (Number(meta.blocked_until ?? 0) > now || Number(meta.refresh_lock ?? 0) > now) value = false;
+  else if (now - Number(meta.listed_at ?? 0) > LIST_EVERY_MS) value = true;
+  else value = (await pickDue(now)).length > 0;
+  needsCache = { at: now, value };
+  return value;
 }
 
 const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -247,6 +259,7 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
     }
     return { priced };
   } finally {
+    needsCache = null;
     await setMeta("refresh_lock", "0");
   }
 }

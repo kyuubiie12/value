@@ -115,16 +115,19 @@ let done: Promise<void> | null = null;
 export function runMigrations(client: Client): Promise<void> {
   if (!done) {
     done = (async () => {
-      for (const sql of STATEMENTS) {
-        await client.execute(sql);
-      }
-      for (const sql of ADD_COLUMNS) {
-        try {
-          await client.execute(sql);
-        } catch (err) {
-          if (!/duplicate column/i.test(String(err))) throw err;
-        }
-      }
+      // One round trip for every CREATE (the database can be an ocean away), then
+      // the column additions together — instead of ~30 sequential statements
+      // on every cold start.
+      await client.batch(STATEMENTS, "write");
+      await Promise.all(
+        ADD_COLUMNS.map(async (sql) => {
+          try {
+            await client.execute(sql);
+          } catch (err) {
+            if (!/duplicate column/i.test(String(err))) throw err;
+          }
+        }),
+      );
     })();
   }
   return done;
