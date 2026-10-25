@@ -63,6 +63,8 @@ export const PLAYABLE_BOOKS = new Set([
   "bwin",
   "888sport",
   "betway",
+  "leovegas",
+  "betinia",
 ]);
 
 /** The sharp reference the fair price is de-vigged from. */
@@ -89,6 +91,12 @@ export const WANTED_BETS = new Set<string>(Object.values(BET));
  * real edge, so it is dropped rather than shown as a "great" bet.
  */
 export const MAX_PLAUSIBLE_EV = 0.25;
+
+/**
+ * Long shots are where a proportional de-vig is least reliable (the favourite–
+ * longshot bias), so prices above this aren't offered as main-market value.
+ */
+export const MAX_MAIN_ODDS = 4.5;
 
 /** Below this the "edge" is rounding noise, not something worth a stake. */
 export const MIN_EV = 0.005;

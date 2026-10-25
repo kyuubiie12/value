@@ -51,13 +51,20 @@ interface RawEvent {
   startTimestamp: number;
   status?: { type?: string };
   tournament?: { name?: string };
-  homeTeam: { id: number };
-  awayTeam: { id: number };
+  homeTeam: { id: number; name?: string };
+  awayTeam: { id: number; name?: string };
+  homeScore?: { current?: number };
+  awayScore?: { current?: number };
 }
 
 export interface RecentMatch {
   id: number;
   date: string;
+  /** Goals for / against, from the team's own side. */
+  gf: number;
+  ga: number;
+  home: boolean;
+  opponent: string;
 }
 
 /** A team's finished competitive matches, newest first (friendlies excluded). */
@@ -68,7 +75,20 @@ export async function teamRecentMatches(teamId: number, want: number): Promise<R
     const events = (d.events ?? [])
       .filter((e) => e.status?.type === "finished" && !/friendl/i.test(e.tournament?.name ?? ""))
       .sort((a, b) => b.startTimestamp - a.startTimestamp);
-    for (const e of events) out.push({ id: e.id, date: new Date(e.startTimestamp * 1000).toISOString() });
+    for (const e of events) {
+      const home = e.homeTeam.id === teamId;
+      const mine = (home ? e.homeScore : e.awayScore)?.current;
+      const theirs = (home ? e.awayScore : e.homeScore)?.current;
+      if (typeof mine !== "number" || typeof theirs !== "number") continue;
+      out.push({
+        id: e.id,
+        date: new Date(e.startTimestamp * 1000).toISOString(),
+        gf: mine,
+        ga: theirs,
+        home,
+        opponent: (home ? e.awayTeam.name : e.homeTeam.name) ?? "",
+      });
+    }
     if (!d.hasNextPage) break;
   }
   return out.sort((a, b) => b.date.localeCompare(a.date)).slice(0, want);

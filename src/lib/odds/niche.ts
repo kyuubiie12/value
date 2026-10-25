@@ -15,6 +15,10 @@ export const NICHE_BOOKS: Record<string, string> = {
   bet365: "bet365",
   betano: "betano",
   "bwin.dk": "bwin",
+  "betinia.dk": "betinia",
+  leovegas: "leovegas",
+  "unibet.dk": "unibet",
+  "888sport.dk": "888sport",
 };
 
 export type NicheCategory = "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards";
@@ -46,13 +50,23 @@ const CATEGORY_NOUN: Record<NicheCategory, string> = {
   cards: "kort",
 };
 
-const BOOK_NAME: Record<string, string> = { bet365: "Bet365", betano: "Betano", bwin: "Bwin" };
+const BOOK_NAME: Record<string, string> = {
+  bet365: "Bet365",
+  betano: "Betano",
+  bwin: "Bwin",
+  betinia: "Betinia",
+  leovegas: "LeoVegas",
+  unibet: "Unibet",
+  "888sport": "888sport",
+};
 
 /** Compact market dictionary kept in the database (outcome id → label). */
 export interface NicheMarket {
   c: NicheCategory;
   n: string;
   o: Record<string, string>;
+  /** The line of an over/under market (0.5, 1.5 …); 0 for ladders ("1+", "2+"). */
+  h?: number;
 }
 export type NicheMarkets = Record<string, NicheMarket>;
 
@@ -114,11 +128,20 @@ export interface NicheCandidate {
 }
 
 interface Group {
-  m: NicheMarket;
-  marketId: number;
+  category: NicheCategory;
   playerId: number;
-  outcomeId: number;
+  /** The count that wins the bet: 2 means "2+". */
+  line: number;
   prices: Map<string, number>;
+}
+
+/** "2+" → 2, "Yes" → 1, and "Over" on a 1.5 line → 2; anything else can't be compared. */
+function lineOf(m: NicheMarket, outcome: string | undefined): number | null {
+  if (!outcome) return null;
+  const ladder = lineFromLabel(outcome);
+  if (ladder !== null) return ladder;
+  if (/^over$/i.test(outcome) && m.h && !Number.isInteger(m.h)) return Math.floor(m.h) + 1;
+  return null;
 }
 
 /** Every "N+" player prop our Danish books price, at its best price. No judgement yet. */
@@ -135,20 +158,22 @@ export function listPropCandidates(
       if (o.active === false || !o.playerId || !(o.price > 1)) continue;
       const m = markets[String(o.marketId)];
       if (!m) continue;
-      const key = `${o.marketId}|${o.playerId}|${o.outcomeId}`;
+      const line = lineOf(m, m.o[String(o.outcomeId)]);
+      if (line === null) continue;
+      const key = `${m.c}|${o.playerId}|${line}`;
       let g = groups.get(key);
       if (!g) {
-        g = { m, marketId: o.marketId, playerId: o.playerId, outcomeId: o.outcomeId, prices: new Map() };
+        g = { category: m.c, playerId: o.playerId, line, prices: new Map() };
         groups.set(key, g);
       }
-      g.prices.set(slug, o.price);
+      // The same book can quote a line twice (ladder + over/under): keep its better price.
+      g.prices.set(slug, Math.max(g.prices.get(slug) ?? 0, o.price));
     }
   }
 
   const out: NicheCandidate[] = [];
   for (const g of groups.values()) {
-    const label = g.m.o[String(g.outcomeId)];
-    if (!label || lineFromLabel(label) === null) continue;
+    const label = g.category === "cards" && g.line === 1 ? "Yes" : `${g.line}+`;
     let bestSlug = "";
     let best = 0;
     for (const [slug, p] of g.prices) {
@@ -159,12 +184,12 @@ export function listPropCandidates(
     }
     if (best < MIN_PRICE || best > MAX_PRICE) continue;
     out.push({
-      id: `np_${fx.fixtureId}_${g.marketId}_${g.playerId}_${g.outcomeId}`,
+      id: `np_${fx.fixtureId}_${g.category}_${g.playerId}_${g.line}`,
       fixture: fx,
       playerId: g.playerId,
-      category: g.m.c,
+      category: g.category,
       outcomeLabel: label,
-      noun: CATEGORY_NOUN[g.m.c],
+      noun: CATEGORY_NOUN[g.category],
       bestOdds: best,
       bestBookmakerId: NICHE_BOOKS[bestSlug],
       quotes: [...g.prices].map(([slug, price]) => ({ bookmakerId: NICHE_BOOKS[slug], price, updatedAt: at })),

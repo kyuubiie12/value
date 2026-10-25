@@ -4,12 +4,12 @@ import type { ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, playerNames } from "@/lib/db/schema";
 import { LEAGUE_PRIORITY } from "./config";
+import { loadMarketDicts } from "./market-dicts";
 import { findPlayer } from "./player-model";
 import { fixtureHistory } from "./player-history";
 import { historyContext, isProven, rosterFromHistory } from "./history-model";
 import {
   fetchFixtureNicheOdds,
-  fetchNicheMarkets,
   fetchPlayerNames,
   listTournamentFixtures,
   OddsPapiError,
@@ -31,7 +31,6 @@ const STALE_MS = () => num(process.env.ODDSPAPI_STALE_HOURS, 12) * 3_600_000;
 const RESERVE = () => num(process.env.ODDSPAPI_RESERVE, 15);
 const HORIZON_MS = 40 * 3_600_000;
 const LIST_EVERY_MS = 72 * 3_600_000;
-const MARKETS_EVERY_MS = 30 * 24 * 3_600_000;
 const LOCK_MS = 4 * 60_000;
 const MAX_PER_RUN = 6;
 /** A run stops starting new matches after this long (history for one match takes ~30 s). */
@@ -128,19 +127,10 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
   try {
     await db.delete(nicheFixtures).where(lt(nicheFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
 
-    let markets: NicheMarkets | null = null;
-    if (meta.niche_markets && now - Number(meta.niche_markets_at ?? 0) < MARKETS_EVERY_MS) {
-      markets = JSON.parse(meta.niche_markets) as NicheMarkets;
-    } else {
-      const res = await fetchNicheMarkets();
-      markets = res.markets;
-      await setMeta("niche_markets", JSON.stringify(markets));
-      await setMeta("niche_markets_at", String(now));
-      if (stop(res.remaining)) return await blocked(priced);
-    }
+    const markets: NicheMarkets = (await loadMarketDicts()).niche;
 
     // Re-list once after the team-id columns were added, so existing rows get their ids.
-    if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "1") {
+    if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2") {
       for (const tid of Object.keys(TOURNAMENT_LEAGUES).map(Number)) {
         const { fixtures, remaining } = await listTournamentFixtures(tid);
         for (const f of fixtures) {
@@ -161,7 +151,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         if (stop(remaining)) return await blocked(priced);
       }
       await setMeta("niche_listed_at", String(now));
-      await setMeta("niche_ids_v", "1");
+      await setMeta("niche_ids_v", "2");
     }
 
     for (const f of (await pickDue(now)).slice(0, MAX_PER_RUN)) {

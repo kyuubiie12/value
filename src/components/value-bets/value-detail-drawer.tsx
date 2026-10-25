@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { EvIndicator } from "@/components/shared/ev-indicator";
 import { LeagueBadge } from "@/components/shared/league-badge";
 import { FairPills } from "@/components/shared/fair-pills";
+import { FormGuide } from "@/components/shared/form-guide";
 import { BookmakerLogo } from "@/components/shared/bookmaker-logo";
 import { OddsBoard } from "./odds-board";
 
@@ -220,6 +221,13 @@ export function ValueDetailDrawer({
               {o.homeTeam} <span className="font-normal text-subtle">vs</span>{" "}
               {o.awayTeam}
             </p>
+            {(o.homeForm || o.awayForm) && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                <FormGuide form={o.homeForm} label={o.homeTeam.split(" ")[0]} />
+                <FormGuide form={o.awayForm} label={o.awayTeam.split(" ")[0]} />
+                <span className="text-[10px] text-subtle">seneste 5 kampe</span>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
                 href={fixtureHref(o)}

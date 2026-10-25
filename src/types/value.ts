@@ -12,6 +12,16 @@ export interface OddsQuote {
  * A detected +EV football betting opportunity: the best available price for a
  * selection is higher than the de-vigged fair price derived from sharp books.
  */
+/** One of a team's recent matches, seen from that team's side. */
+export interface TeamFormMatch {
+  date: string; // ISO
+  /** Goals for / against. */
+  gf: number;
+  ga: number;
+  home: boolean;
+  opponent: string;
+}
+
 export interface ValueOpportunity {
   id: string;
   leagueId: string;
@@ -74,6 +84,8 @@ export interface ValueOpportunity {
    * per-game rate for the stat and the chance that rate implies for this line.
    */
   playerStats?: PlayerStatContext;
+  /** Both teams' recent matches (newest first) — the numbers behind a result/goals bet. */
+  teamForm?: { home: TeamFormMatch[]; away: TeamFormMatch[] };
   /** Player props only: what to look up after the match to grade the pick. */
   propSpec?: { player: string; stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards"; line: number };
 

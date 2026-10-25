@@ -13,6 +13,7 @@ import {
   sportApiRemaining,
   SportApiError,
   teamRecentMatches,
+  type RecentMatch,
 } from "./sportapi";
 
 /**
@@ -89,6 +90,19 @@ async function playersOfMatch(fixtureId: number): Promise<StoredPlayer[]> {
   return players;
 }
 
+/** A team's recent matches (with scores), cached for half a day and shared by history and form. */
+export async function recentMatchesCached(teamId: number, want: number): Promise<RecentMatch[]> {
+  const key = `sa_recent2_${teamId}_${want}`;
+  const cached = await meta(key);
+  if (cached && Date.now() - Number((await meta(`${key}_at`)) ?? 0) < RECENT_TTL_MS) {
+    return JSON.parse(cached) as RecentMatch[];
+  }
+  const recent = await teamRecentMatches(teamId, want);
+  await setMeta(key, JSON.stringify(recent));
+  await setMeta(`${key}_at`, String(Date.now()));
+  return recent;
+}
+
 const SPORTAPI_RESERVE = Number(process.env.SPORTAPI_RESERVE) || 40;
 
 /** SportAPI path: team ids straight from the fixture, full player names, cards from incidents. */
@@ -102,16 +116,7 @@ async function sportApiHistory(
   const byPlayer = new Map<number, HistoryPlayer>();
   try {
     for (const teamId of teamIds) {
-      const key = `sa_recent_${teamId}_${want}`;
-      let recent: { id: number; date: string }[];
-      const cached = await meta(key);
-      if (cached && Date.now() - Number((await meta(`${key}_at`)) ?? 0) < RECENT_TTL_MS) {
-        recent = JSON.parse(cached);
-      } else {
-        recent = await teamRecentMatches(teamId, want);
-        await setMeta(key, JSON.stringify(recent));
-        await setMeta(`${key}_at`, String(Date.now()));
-      }
+      const recent = await recentMatchesCached(teamId, want);
       for (const m of recent) {
         // Sofascore ids live in their own (negative) key space next to API-Football's.
         const cacheId = -m.id;

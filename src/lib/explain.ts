@@ -1,11 +1,13 @@
-import type { ValueOpportunity } from "@/types";
+import type { TeamFormMatch, ValueOpportunity } from "@/types";
 import { getBookmaker } from "@/lib/mock-data";
 import { formatOdds, formatPercent } from "@/lib/format";
 
 /**
  * Plain-language "why is this value?" built only from the numbers we hold —
  * no model involved, so every sentence can be checked against the odds board.
- * The AI summary (when configured) is written on top of exactly these facts.
+ * It always leads with the statistics a reader can recognise (what the player or
+ * the teams have actually done), then the price argument. The AI summary (when
+ * configured) is written on top of exactly these facts.
  */
 export interface Explanation {
   /** One-line version of the argument. */
@@ -17,33 +19,89 @@ export interface Explanation {
 }
 
 const pct = (n: number, digits = 1) => formatPercent(n, { digits });
+const dec = (n: number, digits = 1) => n.toFixed(digits).replace(".", ",");
+const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
 function averageOf(values: number[]): number {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 }
 
-/** Player props: the case is the player's own last matches against the price. */
+/** "3, 4, 2" for the newest matches first. */
+const list = (xs: number[]) => xs.join(", ");
+
+/** Player props: the case is what he has actually done, set against the price. */
 function explainHistory(o: ValueOpportunity, bookName: string): Explanation {
   const st = o.playerStats!;
   const h = st.history!;
   const breakEven = 1 / o.bestOdds;
-  const counts = h.counts.join(", ");
+  const last5 = h.counts.slice(0, 5);
+  const avg5 = mean(last5);
+  const hits5 = last5.filter((c) => c >= st.line).length;
+  const avg10 = mean(h.counts);
 
   const points = [
-    `${st.player} har ramt ${st.line}+ ${st.metric} i ${h.hits} af sine seneste ${h.n} kampe (${counts}, nyeste først) — det er ${pct(h.hitRate, 0)} af kampene.`,
-    `${bookName} giver ${formatOdds(o.bestOdds)}, og den pris kræver kun, at det sker i ${pct(breakEven, 0)} af kampene for at gå lige op.`,
-    `Med kun ${h.n} kampe kan held spille ind, så vi regner pessimistisk: selv hvis han er heldig i de seneste kampe, lander han stadig mindst ${pct(st.modelProbability, 0)} af gangene. Det svarer til fair odds ${formatOdds(st.modelFairOdds)}.`,
-    `Forskellen er dit forventede overskud: ${formatPercent(o.expectedValue, { signed: true })} af indsatsen på sigt${
-      st.perGame ? `. Hans gennemsnit er ${st.perGame.toFixed(1).replace(".", ",")} ${st.metric} pr. kamp` : ""
-    }.`,
+    `De seneste ${last5.length} kampe: ${list(last5)} ${st.metric} — i snit ${dec(avg5)} pr. kamp. Han nåede ${st.line}+ i ${hits5} af ${last5.length}.`,
+    ...(h.n > last5.length
+      ? [`De seneste ${h.n} kampe: i snit ${dec(avg10)} pr. kamp, og han nåede ${st.line}+ i ${h.hits} af ${h.n} (${pct(h.hitRate, 0)}).`]
+      : []),
+    `${bookName} giver ${formatOdds(o.bestOdds)} på ${st.line}+ — den pris kræver kun, at det sker i ${pct(breakEven, 0)} af kampene for at gå lige op.`,
+    `Med kun ${h.n} kampe kan held spille ind, så vi regner pessimistisk: selv hvis han er heldig i de seneste kampe, lander han stadig mindst ${pct(st.modelProbability, 0)} af gangene. Det svarer til fair odds ${formatOdds(st.modelFairOdds)} — prisen er højere, og forskellen er dit forventede overskud: ${formatPercent(o.expectedValue, { signed: true })} af indsatsen på sigt.`,
   ];
 
   return {
-    headline: `${st.player} har ramt ${st.line}+ ${st.metric} i ${h.hits} af ${h.n} kampe — ${bookName} giver ${formatOdds(o.bestOdds)}, som kun kræver ${pct(breakEven, 0)}.`,
+    headline: `${st.player} har lavet i snit ${dec(avg5)} ${st.metric} de seneste ${last5.length} kampe — og ${st.line}+ er prissat til ${formatOdds(o.bestOdds)} hos ${bookName}.`,
     points,
     caveat:
       "Bygger kun på hans egne seneste kampe — ikke på modstanderen, om han starter, eller hvor mange minutter han får. Tjek opstillingen, før du spiller, og brug små indsatser. Spillet annulleres normalt, hvis han ikke kommer på banen.",
   };
+}
+
+const result = (m: TeamFormMatch) => (m.gf > m.ga ? "V" : m.gf < m.ga ? "T" : "U");
+
+/** Team form lines for result / goals bets — the numbers a reader can recognise. */
+function formPoints(o: ValueOpportunity): string[] {
+  const f = o.teamForm;
+  if (!f) return [];
+  const home = f.home.slice(0, 5);
+  const away = f.away.slice(0, 5);
+  if (home.length < 3 || away.length < 3) return [];
+  const goals = (ms: TeamFormMatch[]) => dec(mean(ms.map((m) => m.gf + m.ga)));
+  const line = (name: string, ms: TeamFormMatch[]) =>
+    `${name} (seneste ${ms.length}, nyeste først): ${ms.map(result).join(" ")} — scorer ${dec(mean(ms.map((m) => m.gf)))} og lukker ${dec(mean(ms.map((m) => m.ga)))} ind pr. kamp`;
+  const side = (t: string) => (t === o.homeTeam ? home : t === o.awayTeam ? away : null);
+  const sel = o.selection;
+  const lineNo = /(\d+(?:[.,]\d+)?)/.exec(sel)?.[1]?.replace(",", ".");
+  const threshold = lineNo ? Number(lineNo) : null;
+  const over = /^over|\bover\b/i.test(sel) && !/^under/i.test(sel);
+
+  switch (o.market) {
+    case "over-under": {
+      if (threshold === null) break;
+      const hit = (ms: TeamFormMatch[]) => ms.filter((m) => (over ? m.gf + m.ga > threshold : m.gf + m.ga < threshold)).length;
+      const w = over ? "over" : "under";
+      return [
+        `Seneste ${home.length} kampe med ${w} ${dec(threshold)} mål: ${o.homeTeam} ${hit(home)} af ${home.length} (snit ${goals(home)} mål pr. kamp), ${o.awayTeam} ${hit(away)} af ${away.length} (snit ${goals(away)}).`,
+      ];
+    }
+    case "team-total": {
+      if (threshold === null) break;
+      const team = [o.homeTeam, o.awayTeam].find((t) => sel.startsWith(t));
+      const ms = team ? side(team) : null;
+      if (!team || !ms) break;
+      const hit = ms.filter((m) => (over ? m.gf > threshold : m.gf < threshold)).length;
+      return [
+        `${team} har scoret ${ms.map((m) => m.gf).join(", ")} mål i de seneste ${ms.length} kampe (snit ${dec(mean(ms.map((m) => m.gf)))}) — ${hit} af ${ms.length} gange ${over ? "over" : "under"} ${dec(threshold)}.`,
+      ];
+    }
+    case "1x2":
+    case "draw-no-bet":
+    case "double-chance":
+    case "asian-handicap":
+      return [`${line(o.homeTeam, home)}.`, `${line(o.awayTeam, away)}.`];
+    default:
+      break;
+  }
+  return [];
 }
 
 export function explainOpportunity(o: ValueOpportunity): Explanation {
@@ -55,7 +113,10 @@ export function explainOpportunity(o: ValueOpportunity): Explanation {
   const consensus = o.fairBasis === "consensus";
   const others = o.quotes.filter((q) => q.bookmakerId !== o.bestBookmakerId);
 
-  const points: string[] = [];
+  // Evidence first: what the teams have actually done lately.
+  const stats = formPoints(o);
+  const points: string[] = [...stats];
+
   if (consensus) {
     points.push(
       `${bookName} giver ${formatOdds(o.bestOdds)} på ${o.selection}. ${others.length} andre danske bookmakere prissætter samme spil til i snit ${formatOdds(averageOf(others.map((q) => q.price)))}.`,
@@ -86,7 +147,9 @@ export function explainOpportunity(o: ValueOpportunity): Explanation {
 
   const headline = consensus
     ? `${bookName} giver ${formatOdds(o.bestOdds)} — de andre danske bookmakere giver i snit ${formatOdds(averageOf(others.map((q) => q.price)))} på det samme spil.`
-    : `Prisen er ${formatPercent(o.bestOdds / o.fairOdds - 1, { digits: 0 })} over fair odds fra Pinnacle.`;
+    : stats.length && (o.market === "over-under" || o.market === "team-total")
+      ? `${stats[0].replace(/\.$/, "")}. Prisen hos ${bookName} er ${formatPercent(o.bestOdds / o.fairOdds - 1, { digits: 0 })} over Pinnacles fair odds.`
+      : `Prisen er ${formatPercent(o.bestOdds / o.fairOdds - 1, { digits: 0 })} over fair odds fra Pinnacle.`;
 
   const caveat = consensus
     ? "Det her er en prisforskel mellem bookmakere, ikke en bevist fejl. Tjek at linjen er den samme, før du spiller, og brug små indsatser."

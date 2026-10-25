@@ -1,6 +1,7 @@
 import "server-only";
 import { categoryOf, NICHE_BOOKS } from "./niche";
 import type { NicheMarkets, RawNicheOdds } from "./niche";
+import { isMainMarket, ODDSPAPI_BOOKS, type MainMarkets } from "./oddspapi-main";
 
 /**
  * Thin OddsPapi client (via RapidAPI). Server only. Every call counts against
@@ -19,6 +20,11 @@ export const TOURNAMENT_LEAGUES: Record<number, string> = {
   35: "ger-bundesliga",
   34: "fra-ligue1",
   39: "den-superliga",
+  7: "uefa-ucl",
+  679: "uefa-uel",
+  37: "ned-eredivisie",
+  18: "eng-championship",
+  238: "por-primeira",
 };
 
 export class OddsPapiError extends Error {
@@ -84,31 +90,36 @@ export async function listTournamentFixtures(tournamentId: number) {
 interface RawMarket {
   marketId: number;
   marketName: string;
+  marketType: string;
+  period: string;
+  handicap: number;
   playerProp: boolean;
   outcomes: { outcomeId: number; outcomeName: string }[];
 }
 
-/** The player-prop markets we care about, with their outcome labels. */
-export async function fetchNicheMarkets() {
+/** One `/markets` call → the player-prop dictionary and the main-market dictionary. */
+export async function fetchMarketDictionaries() {
   const { data, remaining } = await call<RawMarket[]>("/markets", { sportId: "10" });
-  const markets: NicheMarkets = {};
+  const niche: NicheMarkets = {};
+  const main: MainMarkets = {};
   for (const m of data) {
+    const outcomes = Object.fromEntries(m.outcomes.map((o) => [String(o.outcomeId), o.outcomeName]));
     const c = categoryOf(m.marketName, m.playerProp);
-    if (!c) continue;
-    markets[String(m.marketId)] = {
-      c,
-      n: m.marketName,
-      o: Object.fromEntries(m.outcomes.map((o) => [String(o.outcomeId), o.outcomeName])),
-    };
+    if (c) {
+      niche[String(m.marketId)] = { c, n: m.marketName, o: outcomes, ...(m.handicap ? { h: m.handicap } : {}) };
+    } else if (isMainMarket(m)) {
+      main[String(m.marketId)] = { t: m.marketType, h: m.handicap, o: outcomes };
+    }
   }
-  return { markets, remaining };
+  return { niche, main, remaining };
 }
 
-/** One fixture's prices from our comparison books. */
+/** One fixture's prices from every book we compare (props and main markets in one call). */
 export async function fetchFixtureNicheOdds(fixtureId: string) {
+  const slugs = [...new Set([...Object.keys(NICHE_BOOKS), ...Object.keys(ODDSPAPI_BOOKS)])];
   const { data, remaining } = await call<{ odds?: RawNicheOdds }>("/fixtures/odds", {
     fixtureId,
-    bookmakers: Object.keys(NICHE_BOOKS).join(","),
+    bookmakers: slugs.join(","),
   });
   return { odds: data.odds ?? {}, remaining };
 }

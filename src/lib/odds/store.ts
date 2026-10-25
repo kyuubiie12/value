@@ -1,13 +1,18 @@
 import "server-only";
 import { eq, gt, lt, sql } from "drizzle-orm";
 import { db, dbReady } from "@/lib/db";
-import { feedMeta, oddsFixtures } from "@/lib/db/schema";
+import { feedMeta, nicheFixtures, oddsFixtures } from "@/lib/db/schema";
 import {
   ApiFootballError,
   fetchFixtureOdds,
   listFixtures,
 } from "./api-football";
 import { LEAGUE_PRIORITY } from "./config";
+import { loadMarketDicts } from "./market-dicts";
+import { fetchFixtureNicheOdds, oddsPapiConfigured } from "./oddspapi";
+import { toBookOdds, type RawMainOdds } from "./oddspapi-main";
+import { matchTeam } from "./player-stats-store";
+import { fixtureForm } from "./team-form";
 import type { BookOdds, FixtureRecord } from "./detect";
 
 /**
@@ -64,6 +69,15 @@ function parse(json: string | null): BookOdds | null {
   }
 }
 
+function parseForm(json: string | null): FixtureRecord["form"] {
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as FixtureRecord["form"];
+  } catch {
+    return null;
+  }
+}
+
 /** Priced, upcoming fixtures — what the feed is built from. */
 export async function loadPricedFixtures(): Promise<FixtureRecord[]> {
   await dbReady;
@@ -84,6 +98,7 @@ export async function loadPricedFixtures(): Promise<FixtureRecord[]> {
       awayTeam: r.awayTeam,
       odds,
       openOdds: parse(r.openJson),
+      form: parseForm(r.formJson),
       oddsUpdatedAt: r.oddsUpdatedAt,
       firstFetchedAt: r.firstFetchedAt,
       fetchedAt: r.fetchedAt,
@@ -126,6 +141,19 @@ export async function feedStatus(): Promise<FeedStatus> {
 }
 
 type FixtureRow = typeof oddsFixtures.$inferSelect;
+
+/** The OddsPapi fixture for one of our matches: same league, same two teams, kick-off within hours. */
+async function oddsPapiFixtureId(f: FixtureRow): Promise<string | null> {
+  const rows = await db.select().from(nicheFixtures).where(eq(nicheFixtures.leagueId, f.leagueId)).all();
+  const near = rows.filter((r) => Math.abs(new Date(r.startsAt).getTime() - new Date(f.startsAt).getTime()) < 3 * 3_600_000);
+  const home = matchTeam(f.homeTeam, near.map((r) => ({ id: Number(r.homeId ?? 0), name: r.homeTeam })));
+  if (!home) return null;
+  const hit = near.find((r) => r.homeId === home.id && matchTeam(f.awayTeam, [{ id: 1, name: r.awayTeam }]));
+  return hit?.fixtureId ?? null;
+}
+
+/** Keep this many OddsPapi calls in hand for the props feed. */
+const PAPI_RESERVE = 200;
 
 /**
  * The matches worth pricing right now: the best-ranked `UNIVERSE` upcoming
@@ -226,8 +254,27 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
 
     const due = await pickDue(now);
 
-    for (const f of due.slice(0, MAX_PER_RUN)) {
-      const { odds, updatedAt, remaining } = await fetchFixtureOdds(f.fixtureId);
+    for (const f of due.slice(0, oddsPapiConfigured() ? MAX_PER_RUN * 2 : MAX_PER_RUN)) {
+      // OddsPapi first: it prices the Danish books (LeoVegas, Betinia …) next to Pinnacle in one call.
+      let odds: BookOdds = {};
+      let updatedAt: string | null = null;
+      let remaining: number | null = null;
+      let viaPapi = false;
+      if (oddsPapiConfigured() && Number((await getMeta("niche_remaining")) || Infinity) > PAPI_RESERVE) {
+        try {
+          const papiId = await oddsPapiFixtureId(f);
+          if (papiId) {
+            const raw = await fetchFixtureNicheOdds(papiId);
+            odds = toBookOdds(raw.odds as RawMainOdds, (await loadMarketDicts()).main);
+            updatedAt = new Date().toISOString();
+            viaPapi = Object.keys(odds).length > 0;
+            if (raw.remaining !== null) await setMeta("niche_remaining", String(raw.remaining));
+          }
+        } catch (err) {
+          console.error("[odds] OddsPapi failed, falling back:", err);
+        }
+      }
+      if (!viaPapi) ({ odds, updatedAt, remaining } = await fetchFixtureOdds(f.fixtureId));
       const fetchedAt = new Date().toISOString();
       const json = JSON.stringify(odds);
       await db
@@ -241,6 +288,10 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
         })
         .where(eq(oddsFixtures.fixtureId, f.fixtureId));
       priced++;
+      const form = await fixtureForm(f.leagueId, f.homeTeam, f.awayTeam);
+      if (form) {
+        await db.update(oddsFixtures).set({ formJson: JSON.stringify(form) }).where(eq(oddsFixtures.fixtureId, f.fixtureId));
+      }
       if (remaining !== null) {
         await setMeta("api_remaining", String(remaining));
         if (remaining <= KEEP_SPARE) {
@@ -248,7 +299,19 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
           break;
         }
       }
-      await sleep(PACE_MS);
+      // The rate limit only applies to API-Football; OddsPapi can go as fast as we like.
+      if (!viaPapi) await sleep(PACE_MS);
+    }
+    // Fixtures priced earlier have no form yet — fill a few in (no API-Football calls).
+    const missing = await db
+      .select()
+      .from(oddsFixtures)
+      .where(sql`${oddsFixtures.formJson} is null and ${oddsFixtures.oddsJson} is not null and ${oddsFixtures.startsAt} > ${new Date().toISOString()}`)
+      .limit(6)
+      .all();
+    for (const f of missing) {
+      const form = await fixtureForm(f.leagueId, f.homeTeam, f.awayTeam);
+      if (form) await db.update(oddsFixtures).set({ formJson: JSON.stringify(form) }).where(eq(oddsFixtures.fixtureId, f.fixtureId));
     }
     return { priced };
   } catch (err) {

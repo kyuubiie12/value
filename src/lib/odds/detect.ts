@@ -3,11 +3,12 @@ import type {
   MarketType,
   OddsQuote,
   PriceMovement,
+  TeamFormMatch,
   ValueOpportunity,
 } from "@/types";
 import { expectedValue, kellyStake, removeVig } from "@/lib/betting-math";
 import { LEAGUE_MAP } from "@/lib/mock-data/leagues";
-import { BET, MAX_PLAUSIBLE_EV, MIN_EV, PLAYABLE_BOOKS, SHARP_BOOK } from "./config";
+import { BET, MAX_MAIN_ODDS, MAX_PLAUSIBLE_EV, MIN_EV, PLAYABLE_BOOKS, SHARP_BOOK } from "./config";
 
 /** book id → API bet id → outcome label ("Home", "Over 2.5") → decimal odds. */
 export type BookOdds = Record<string, Record<string, Record<string, number>>>;
@@ -24,6 +25,8 @@ export interface FixtureRecord {
   oddsUpdatedAt: string | null;
   firstFetchedAt: string | null;
   fetchedAt: string;
+  /** Both teams' recent matches, newest first (when known). */
+  form?: { home: TeamFormMatch[]; away: TeamFormMatch[] } | null;
 }
 
 interface Outcome {
@@ -227,6 +230,15 @@ function confidenceFor(edge: number, books: number, movement: PriceMovement): Co
   return "low";
 }
 
+/** "WWDLT"-style form, most recent LAST (that's what the form guide expects). */
+function formString(matches: TeamFormMatch[] | undefined): string {
+  if (!matches?.length) return "";
+  return [...matches]
+    .reverse()
+    .map((m) => (m.gf > m.ga ? "W" : m.gf < m.ga ? "L" : "D"))
+    .join("");
+}
+
 function movementOf(now: number, open: number): PriceMovement {
   if (!open) return "stable";
   const ratio = now / open;
@@ -255,7 +267,7 @@ export function detectValue(rec: FixtureRecord): ValueOpportunity[] {
 
       const best = quotes.reduce((a, q) => (q.price > a.price ? q : a));
       const ev = expectedValue(best.price, fairP);
-      if (ev < MIN_EV || ev > MAX_PLAUSIBLE_EV) return;
+      if (ev < MIN_EV || ev > MAX_PLAUSIBLE_EV || best.price > MAX_MAIN_ODDS) return;
 
       const avg = quotes.reduce((s, q) => s + q.price, 0) / quotes.length;
       const openBest = rec.openOdds ? bestPrice(quotesFor(rec.openOdds, o, at)) : 0;
@@ -278,8 +290,9 @@ export function detectValue(rec: FixtureRecord): ValueOpportunity[] {
         league: league?.name ?? rec.leagueId,
         homeTeam: rec.homeTeam,
         awayTeam: rec.awayTeam,
-        homeForm: "",
-        awayForm: "",
+        homeForm: formString(rec.form?.home),
+        awayForm: formString(rec.form?.away),
+        ...(rec.form ? { teamForm: rec.form } : {}),
         startsAt: rec.startsAt,
         market: g.market,
         marketLabel: g.marketLabel,

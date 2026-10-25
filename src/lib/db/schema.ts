@@ -149,6 +149,8 @@ export const oddsFixtures = sqliteTable("odds_fixtures", {
   homeTeam: text("home_team").notNull(),
   awayTeam: text("away_team").notNull(),
   /** Latest prices; null until the first odds call for this fixture. */
+  /** Both teams' recent matches (JSON) — the form behind the explanation. */
+  formJson: text("form_json"),
   oddsJson: text("odds_json"),
   /** Prices at first sight — the baseline for opening odds / price movement. */
   openJson: text("open_json"),
