@@ -3,7 +3,7 @@ import { and, eq, gt, inArray, like, lt, sql } from "drizzle-orm";
 import type { ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, playerNames, trackPicks } from "@/lib/db/schema";
-import { horizonMs, LEAGUE_PRIORITY, MAX_HORIZON_MS } from "./config";
+import { horizonMs, MAX_HORIZON_MS } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { findPlayer } from "./player-model";
 import { fixtureHistory } from "./player-history";
@@ -58,11 +58,8 @@ async function pickDue(now: number): Promise<Row[]> {
         and ${nicheFixtures.startsAt} < ${new Date(now + MAX_HORIZON_MS).toISOString()}`,
     )
     .all()).filter((f) => new Date(f.startsAt).getTime() <= now + horizonMs(f.leagueId));
-  upcoming.sort(
-    (a, b) =>
-      (LEAGUE_PRIORITY[a.leagueId] ?? 9) - (LEAGUE_PRIORITY[b.leagueId] ?? 9) ||
-      a.startsAt.localeCompare(b.startsAt),
-  );
+  // Soonest kick-off first — every league counts the same.
+  upcoming.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const cutoff = new Date(now - STALE_MS()).toISOString();
   return upcoming
     .slice(0, UNIVERSE())
