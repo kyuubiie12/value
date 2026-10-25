@@ -4,7 +4,8 @@ import type { TeamFormMatch } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta } from "@/lib/db/schema";
 import { recentMatchesCached } from "./player-history";
-import { matchCornerSplit, sportApiConfigured, sportApiRemaining } from "./sportapi";
+import { matchStatsCached } from "./match-stats";
+import { sportApiConfigured, sportApiRemaining } from "./sportapi";
 
 /**
  * Both teams' last matches for the "why is this value" reasoning. The team ids
@@ -14,27 +15,13 @@ import { matchCornerSplit, sportApiConfigured, sportApiRemaining } from "./sport
  */
 
 const RESERVE = 40;
-/** Corner statistics are a nice-to-have — leave plenty of the allowance for everything else. */
-const CORNER_RESERVE = 400;
 export const FORM_MATCHES = 5;
 
-/** A finished match's corner split — kept for good (a finished match never changes). */
+/** A finished match's corner split (from the cached match statistics). */
 async function cornersOf(eventId: number): Promise<{ home: number; away: number } | null> {
-  const key = `sa_cor_${eventId}`;
-  const row = await db.select().from(feedMeta).where(eq(feedMeta.key, key)).get();
-  if (row) return row.value === "x" ? null : (JSON.parse(row.value) as { home: number; away: number });
-  const left = sportApiRemaining();
-  if (left !== null && left < CORNER_RESERVE) return null;
-  try {
-    const split = await matchCornerSplit(eventId);
-    await db
-      .insert(feedMeta)
-      .values({ key, value: split ? JSON.stringify(split) : "x" })
-      .onConflictDoUpdate({ target: feedMeta.key, set: { value: split ? JSON.stringify(split) : "x" } });
-    return split;
-  } catch {
-    return null; // try again next time
-  }
+  const stats = await matchStatsCached(eventId);
+  const c = stats?.corners.ft;
+  return c ? { home: c[0], away: c[1] } : null;
 }
 
 export async function fixtureForm(

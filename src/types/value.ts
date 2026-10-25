@@ -25,6 +25,15 @@ export interface TeamFormMatch {
   ca?: number;
 }
 
+/** A cards / corners line on the match, a half or one team — how to look it up after the match. */
+export interface StatSpec {
+  category: "cards" | "corners";
+  scope: "match" | "home" | "away";
+  period: "ft" | "1h" | "2h";
+  side: "over" | "under";
+  line: number;
+}
+
 export interface ValueOpportunity {
   id: string;
   leagueId: string;
@@ -91,6 +100,8 @@ export interface ValueOpportunity {
   teamIds?: { home: number; away: number };
   /** Both teams' recent matches (newest first) — the numbers behind a result/goals bet. */
   teamForm?: { home: TeamFormMatch[]; away: TeamFormMatch[] };
+  /** Cards / corners lines (match, half, team): what to look up after the match to grade the pick. */
+  statSpec?: StatSpec;
   /** Player props only: what to look up after the match to grade the pick. */
   propSpec?: { player: string; stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards"; line: number };
 

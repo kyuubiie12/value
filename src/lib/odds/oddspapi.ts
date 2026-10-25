@@ -2,6 +2,7 @@ import "server-only";
 import { categoryOf, NICHE_BOOKS } from "./niche";
 import type { NicheMarkets, RawNicheOdds } from "./niche";
 import { isMainMarket, ODDSPAPI_BOOKS, type MainMarkets } from "./oddspapi-main";
+import { statMarketOf, type StatMarkets } from "./stat-markets";
 
 /**
  * Thin OddsPapi client (via RapidAPI). Server only. Every call counts against
@@ -124,6 +125,7 @@ export async function fetchMarketDictionaries() {
   const { data, remaining } = await call<RawMarket[]>("/markets", { sportId: "10" });
   const niche: NicheMarkets = {};
   const main: MainMarkets = {};
+  const stat: StatMarkets = {};
   for (const m of data) {
     const outcomes = Object.fromEntries(m.outcomes.map((o) => [String(o.outcomeId), o.outcomeName]));
     const c = categoryOf(m.marketName, m.playerProp);
@@ -131,9 +133,12 @@ export async function fetchMarketDictionaries() {
       niche[String(m.marketId)] = { c, n: m.marketName, o: outcomes, ...(m.handicap ? { h: m.handicap } : {}) };
     } else if (isMainMarket(m)) {
       main[String(m.marketId)] = { t: m.marketType, h: m.handicap, o: outcomes };
+    } else {
+      const sm = statMarketOf(m);
+      if (sm) stat[String(m.marketId)] = sm;
     }
   }
-  return { niche, main, remaining };
+  return { niche, main, stat, remaining };
 }
 
 /** One fixture's prices from every book we compare (props and main markets in one call). */

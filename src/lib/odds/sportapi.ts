@@ -221,6 +221,40 @@ export async function matchCorners(eventId: number): Promise<number | null> {
   return null;
 }
 
+/** Cards and corners by period, each as [home, away]. */
+export type StatPeriod = "ft" | "1h" | "2h";
+export interface MatchStats {
+  cards: Partial<Record<StatPeriod, [number, number]>>;
+  corners: Partial<Record<StatPeriod, [number, number]>>;
+}
+
+const PERIOD_KEY: Record<string, StatPeriod> = { ALL: "ft", "1ST": "1h", "2ND": "2h" };
+
+/**
+ * Cards (yellow + red) and corners per side, for the whole match and each half —
+ * live or finished. Null when the provider has no statistics for the match.
+ */
+export async function fetchMatchStats(eventId: number): Promise<MatchStats | null> {
+  const d = await call<RawStatistics>(`/api/v1/event/${eventId}/statistics`);
+  const out: MatchStats = { cards: {}, corners: {} };
+  for (const p of d.statistics ?? []) {
+    const period = PERIOD_KEY[p.period ?? ""];
+    if (!period) continue;
+    const items = (p.groups ?? []).flatMap((g) => g.statisticsItems ?? []);
+    if (!items.length) continue;
+    const pick = (key: string) => items.find((i) => i.key === key);
+    const yellow = pick("yellowCards");
+    const red = pick("redCards");
+    out.cards[period] = [
+      (yellow?.homeValue ?? 0) + (red?.homeValue ?? 0),
+      (yellow?.awayValue ?? 0) + (red?.awayValue ?? 0),
+    ];
+    const corners = pick("cornerKicks");
+    if (corners) out.corners[period] = [corners.homeValue ?? 0, corners.awayValue ?? 0];
+  }
+  return out.cards.ft ? out : null;
+}
+
 /** Corners taken by each side in one match (home, away), or null if the provider has none. */
 export async function matchCornerSplit(eventId: number): Promise<{ home: number; away: number } | null> {
   const d = await call<RawStatistics>(`/api/v1/event/${eventId}/statistics`);

@@ -16,6 +16,8 @@ import {
   TOURNAMENT_LEAGUES,
 } from "./oddspapi";
 import { displayName, listPropCandidates, proveNiche, type NicheMarkets } from "./niche";
+import { countsFor, listStatCandidates, proveStat, statContext, statSubject } from "./stat-markets";
+import { fixtureStatSamples } from "./team-stat-history";
 
 /**
  * Player-prop cache + refresh job (OddsPapi). The plan allowance is small, so
@@ -80,7 +82,7 @@ export async function needsNicheRefresh(): Promise<boolean> {
   const meta = await getAllMeta();
   let value: boolean;
   if (Number(meta.niche_blocked_until ?? 0) > now || Number(meta.niche_lock ?? 0) > now) value = false;
-  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2" || meta.niche_opps_v !== "2") value = true;
+  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2" || meta.niche_opps_v !== "2" || meta.niche_stat_v !== "1") value = true;
   else value = (await pickDue(now)).length > 0;
   needsCache = { at: now, value };
   return value;
@@ -157,9 +159,14 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         .where(and(eq(trackPicks.status, "pending"), like(trackPicks.gradeJson, '%"type":"prop"%')));
       await setMeta("niche_opps_v", "2");
     }
+    if (meta.niche_stat_v !== "1") {
+      await db.update(nicheFixtures).set({ fetchedAt: null });
+      await setMeta("niche_stat_v", "1");
+    }
     await db.delete(nicheFixtures).where(lt(nicheFixtures.startsAt, new Date(now - 2 * LIVE_WINDOW_MS).toISOString()));
 
-    const markets: NicheMarkets = (await loadMarketDicts()).niche;
+    const dicts = await loadMarketDicts();
+    const markets: NicheMarkets = dicts.niche;
 
     if (!(await ensureNicheFixtures())) return await blocked(priced);
 
@@ -189,8 +196,23 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         opps.sort((x, y) => y.edgePercent - x.edgePercent);
         opps.splice(15);
       }
-      console.log(`[niche] ${f.homeTeam}–${f.awayTeam}: ${candidates.length} candidates, record ${history ? history.players.length + " players" : "unavailable"}, ${opps.length} proven`);
-      if (candidates.length && !history) {
+      // Cards and corners (match, halves, one team): proven by both teams' own recent matches.
+      const statCands = listStatCandidates(f, odds, dicts.stat, at);
+      const samples = statCands.length ? await fixtureStatSamples(f.homeId, f.awayId) : null;
+      const statOpps: ValueOpportunity[] = [];
+      if (samples) {
+        const season = new Date().getUTCFullYear();
+        for (const c of statCands) {
+          const { subject, metric } = statSubject(c.spec, f);
+          const ctx = statContext(c.spec, countsFor(c.spec, samples), subject, metric, season);
+          if (ctx && isProven(ctx, c.bestOdds)) statOpps.push(proveStat(c, ctx));
+        }
+        statOpps.sort((x, y) => y.edgePercent - x.edgePercent);
+        statOpps.splice(10);
+      }
+      opps.push(...statOpps);
+      console.log(`[niche] ${f.homeTeam}–${f.awayTeam}: ${candidates.length} candidates, record ${history ? history.players.length + " players" : "unavailable"}, ${opps.length - statOpps.length} proven; ${statCands.length} card/corner lines, ${statOpps.length} proven`);
+      if ((candidates.length && !history) || (statCands.length && !samples)) {
         // Player records unavailable right now (allowance / provider hiccup): keep the props we
         // already proved for this match instead of wiping them, and look again in an hour.
         await db

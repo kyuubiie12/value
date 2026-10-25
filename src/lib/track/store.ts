@@ -5,6 +5,7 @@ import { db, dbReady } from "@/lib/db";
 import { trackPicks } from "@/lib/db/schema";
 import { findPlayer } from "@/lib/odds/player-model";
 import {
+  fetchMatchStats,
   findFinishedMatch,
   liveMatches,
   matchCorners,
@@ -16,11 +17,14 @@ import {
 import {
   gradeMain,
   gradeProp,
+  gradeStat,
   parseMainId,
+  statWonAlready,
   profitUnits,
   type MainSpec,
   type PickOutcome,
   type PropSpec,
+  type StatSpec,
 } from "./grade";
 
 /** A value bet only enters the track record at or above this edge (%). */
@@ -36,12 +40,14 @@ const KEEP_QUOTA = 15;
 type GradeJson = { teamIds?: { home: number; away: number } } & (
   | { type: "main"; spec: MainSpec }
   | { type: "prop"; spec: PropSpec }
+  | { type: "stat"; spec: StatSpec }
 );
 
 function gradeFor(o: ValueOpportunity): GradeJson | null {
   // Without both team ids the finished match can't be found again — don't track it.
   if (!o.teamIds) return null;
   if (o.propSpec) return { type: "prop", spec: o.propSpec, teamIds: o.teamIds };
+  if (o.statSpec) return { type: "stat", spec: o.statSpec, teamIds: o.teamIds };
   const main = parseMainId(o.id);
   return main ? { type: "main", spec: main.spec, teamIds: o.teamIds } : null;
 }
@@ -150,7 +156,9 @@ async function settleWhileLive(): Promise<number> {
     try {
       const specs = picks.map((p) => ({ p, g: JSON.parse(p.gradeJson) as GradeJson }));
       const needPlayers = specs.some((x) => x.g.type === "prop");
+      const needStats = specs.some((x) => x.g.type === "stat");
       const players = needPlayers ? await matchPlayers(match.eventId) : [];
+      const live = needStats ? await fetchMatchStats(match.eventId) : null;
       const roster = players.map((p) => ({
         id: p.id, first: "", last: "", name: p.name, position: "", apps: 0, minutes: 0,
         fouls: 0, tackles: 0, shots: 0, shotsOn: 0, cards: 0, saves: 0,
@@ -161,6 +169,8 @@ async function settleWhileLive(): Promise<number> {
           const hit = findPlayer(roster, g.spec.player);
           const stat = hit ? players.find((x) => x.id === hit.id)?.stat : undefined;
           if (stat && gradeProp(g.spec, stat) === "won") ids.push(p.id);
+        } else if (g.type === "stat") {
+          if (statWonAlready(g.spec, live)) ids.push(p.id);
         } else if (
           (g.spec.kind === "goals" || g.spec.kind === "home-goals" || g.spec.kind === "away-goals") &&
           g.spec.side === "over" &&
@@ -231,6 +241,8 @@ async function settleFinished(): Promise<{ settled: number }> {
           return g.type === "main" && g.spec.kind === "corners";
         });
         const needPlayers = entry.picks.some((p) => (JSON.parse(p.gradeJson) as GradeJson).type === "prop");
+        const needStats = entry.picks.some((p) => (JSON.parse(p.gradeJson) as GradeJson).type === "stat");
+        const finalStats = needStats ? await fetchMatchStats(found.eventId) : null;
         const corners = needCorners ? await matchCorners(found.eventId) : null;
         const players = needPlayers ? await matchPlayers(found.eventId) : [];
         const roster = players.map((p) => ({
@@ -246,6 +258,8 @@ async function settleFinished(): Promise<{ settled: number }> {
           let result: PickOutcome | null = null;
           if (g.type === "main") {
             result = gradeMain(g.spec, { home: found.home, away: found.away, corners });
+          } else if (g.type === "stat") {
+            result = gradeStat(g.spec, finalStats); // no statistics yet → try again later
           } else {
             const hit = findPlayer(roster, g.spec.player);
             const stat = hit ? players.find((x) => x.id === hit.id)?.stat : undefined;

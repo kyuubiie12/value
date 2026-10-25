@@ -120,6 +120,12 @@ export function ValueDetailDrawer({
   if (!open || typeof document === "undefined") return null;
   const o = opportunity;
   const why = explainOpportunity(o);
+  const hitsLine = (c: number) =>
+    o.statSpec
+      ? o.statSpec.side === "over"
+        ? c > o.statSpec.line
+        : c < o.statSpec.line
+      : c >= (o.playerStats?.line ?? 0);
 
   const markRead = () => {
     startTransition(async () => {
@@ -293,10 +299,10 @@ export function ValueDetailDrawer({
                   {o.playerStats.history.counts.map((c, i) => (
                     <span
                       key={i}
-                      title={c >= o.playerStats!.line ? "Nåede linjen" : "Nåede ikke linjen"}
+                      title={hitsLine(c) ? "Ramte linjen" : "Ramte ikke linjen"}
                       className={cn(
                         "tabular grid size-8 place-items-center rounded-full text-[12px] font-semibold ring-1 ring-inset",
-                        c >= o.playerStats!.line
+                        hitsLine(c)
                           ? "bg-positive/15 text-positive ring-positive/30"
                           : "bg-surface-2 text-subtle ring-line/70",
                       )}
@@ -306,7 +312,9 @@ export function ValueDetailDrawer({
                   ))}
                 </div>
                 <p className="mt-1.5 text-[11px] text-subtle">
-                  Grøn = han nåede {o.playerStats.line}+ i den kamp.
+                  {o.statSpec
+                    ? `Grøn = ${o.statSpec.side === "over" ? "over" : "under"} ${o.statSpec.line} i den kamp.`
+                    : `Grøn = han nåede ${o.playerStats.line}+ i den kamp.`}
                 </p>
               </div>
             )}

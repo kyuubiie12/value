@@ -5,6 +5,7 @@ import { feedMeta } from "@/lib/db/schema";
 import { fetchMarketDictionaries } from "./oddspapi";
 import type { NicheMarkets } from "./niche";
 import type { MainMarkets } from "./oddspapi-main";
+import type { StatMarkets } from "./stat-markets";
 
 /**
  * OddsPapi's market catalogue (ids → what a market is), kept in the database
@@ -17,6 +18,7 @@ const TTL_MS = 30 * 24 * 3_600_000;
 export interface MarketDicts {
   niche: NicheMarkets;
   main: MainMarkets;
+  stat: StatMarkets;
 }
 
 let memo: { at: number; dicts: MarketDicts } | null = null;
@@ -38,15 +40,21 @@ export async function loadMarketDicts(): Promise<MarketDicts> {
   const at = Number((await getMeta("op_dicts_at")) ?? 0);
   const niche = await getMeta("op_dict_niche");
   const main = await getMeta("op_dict_main");
-  if (niche && main && Date.now() - at < TTL_MS) {
-    const dicts = { niche: JSON.parse(niche) as NicheMarkets, main: JSON.parse(main) as MainMarkets };
+  const stat = await getMeta("op_dict_stat");
+  if (niche && main && stat && Date.now() - at < TTL_MS) {
+    const dicts = {
+      niche: JSON.parse(niche) as NicheMarkets,
+      main: JSON.parse(main) as MainMarkets,
+      stat: JSON.parse(stat) as StatMarkets,
+    };
     memo = { at: Date.now(), dicts };
     return dicts;
   }
   const fresh = await fetchMarketDictionaries();
   await setMeta("op_dict_niche", JSON.stringify(fresh.niche));
   await setMeta("op_dict_main", JSON.stringify(fresh.main));
+  await setMeta("op_dict_stat", JSON.stringify(fresh.stat));
   await setMeta("op_dicts_at", String(Date.now()));
-  memo = { at: Date.now(), dicts: { niche: fresh.niche, main: fresh.main } };
+  memo = { at: Date.now(), dicts: { niche: fresh.niche, main: fresh.main, stat: fresh.stat } };
   return memo.dicts;
 }

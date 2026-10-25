@@ -4,6 +4,10 @@
  * minted) or a player prop (stored spec: player, stat, line).
  */
 
+import type { StatSpec } from "@/types";
+import type { MatchStats } from "@/lib/odds/sportapi";
+
+export type { StatSpec };
 export type PickOutcome = "won" | "lost" | "void";
 
 export type MainSpec =
@@ -108,3 +112,21 @@ export function profitUnits(outcome: PickOutcome, odds: number): number {
   return outcome === "won" ? odds - 1 : outcome === "lost" ? -1 : 0;
 }
 
+
+/** Cards / corners for one line, from the match statistics — null when the numbers aren't there. */
+export function gradeStat(spec: StatSpec, stats: MatchStats | null): PickOutcome | null {
+  const pair = stats?.[spec.category]?.[spec.period];
+  if (!pair) return null;
+  const v = spec.scope === "match" ? pair[0] + pair[1] : spec.scope === "home" ? pair[0] : pair[1];
+  if (v === spec.line) return "void";
+  return (spec.side === "over" ? v > spec.line : v < spec.line) ? "won" : "lost";
+}
+
+/** An over line is won the moment it is passed — no need to wait for the whistle. */
+export function statWonAlready(spec: StatSpec, stats: MatchStats | null): boolean {
+  if (spec.side !== "over") return false;
+  const pair = stats?.[spec.category]?.[spec.period];
+  if (!pair) return false;
+  const v = spec.scope === "match" ? pair[0] + pair[1] : spec.scope === "home" ? pair[0] : pair[1];
+  return v > spec.line;
+}

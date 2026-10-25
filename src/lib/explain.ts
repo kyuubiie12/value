@@ -124,8 +124,38 @@ export function hasStatistics(o: ValueOpportunity): boolean {
   return formPoints(o).length > 0;
 }
 
+/** Cards / corners lines: the case is what both teams' own recent matches show. */
+function explainTeamStat(o: ValueOpportunity, bookName: string): Explanation {
+  const st = o.playerStats!;
+  const h = st.history!;
+  const spec = o.statSpec!;
+  const over = spec.side === "over";
+  const hit = (c: number) => (over ? c > spec.line : c < spec.line);
+  const line = `${over ? "over" : "under"} ${dec(spec.line)}`;
+  const breakEven = 1 / o.bestOdds;
+  const last5 = h.counts.slice(0, 5);
+  const avg5 = mean(last5);
+  const hits5 = last5.filter(hit).length;
+  const pooled = spec.scope === "match" ? " (begge holds seneste kampe lagt sammen)" : "";
+
+  const points = [
+    `De seneste ${last5.length} kampe${pooled}: ${list(last5)} ${st.metric} — i snit ${dec(avg5)}. ${line} ramte i ${hits5} af ${last5.length}.`,
+    `I alt ${h.n} kampe${pooled}: i snit ${dec(mean(h.counts))} ${st.metric}, og ${line} ramte i ${h.hits} af ${h.n} (${pct(h.hitRate, 0)}).`,
+    `${bookName} giver ${formatOdds(o.bestOdds)} på ${line} — den pris kræver kun, at det sker i ${pct(breakEven, 0)} af kampene for at gå lige op.`,
+    `Med kun ${h.n} kampe kan held spille ind, så vi regner pessimistisk: selv med lidt uheld lander det stadig mindst ${pct(st.modelProbability, 0)} af gangene. Det svarer til fair odds ${formatOdds(st.modelFairOdds)} — prisen er højere, og forskellen er dit forventede overskud: ${formatPercent(o.expectedValue, { signed: true })} af indsatsen på sigt.`,
+  ];
+
+  return {
+    headline: `${st.player} har haft i snit ${dec(mean(h.counts))} ${st.metric} pr. kamp i de seneste ${h.n} kampe — og ${line} er prissat til ${formatOdds(o.bestOdds)} hos ${bookName}.`,
+    points,
+    caveat:
+      "Bygger kun på holdenes egne seneste kampe — ikke på dommeren, modstanderens stil eller kampens betydning. Kort afhænger især af dommeren. Brug små indsatser.",
+  };
+}
+
 export function explainOpportunity(o: ValueOpportunity): Explanation {
   const bookName = getBookmaker(o.bestBookmakerId)?.name ?? o.bestBookmakerId;
+  if (o.fairBasis === "history" && o.statSpec && o.playerStats?.history) return explainTeamStat(o, bookName);
   if (o.fairBasis === "history" && o.playerStats?.history) return explainHistory(o, bookName);
 
   const breakEven = 1 / o.bestOdds;

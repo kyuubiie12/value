@@ -23,7 +23,7 @@ export function FairPills({
   if (o.fairBasis === "consensus" || o.fairBasis === "history") {
     return (
       <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
-        <Pill label={o.fairBasis === "history" ? "Vs. hans kampe" : "Vs. andre"} value={sharpEdge} tone="book" size={size} />
+        <Pill label={o.fairBasis === "history" ? (o.statSpec ? "Vs. holdenes kampe" : "Vs. hans kampe") : "Vs. andre"} value={sharpEdge} tone="book" size={size} />
       </div>
     );
   }
