@@ -2,47 +2,34 @@ import "server-only";
 import { eq, gt, lt, sql } from "drizzle-orm";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, oddsFixtures } from "@/lib/db/schema";
-import {
-  ApiFootballError,
-  fetchFixtureOdds,
-  listFixtures,
-} from "./api-football";
 import { LEAGUE_PRIORITY } from "./config";
 import { loadMarketDicts } from "./market-dicts";
-import { fetchFixtureNicheOdds, oddsPapiConfigured } from "./oddspapi";
+import { fetchFixtureNicheOdds, OddsPapiError, oddsPapiConfigured } from "./oddspapi";
 import { ensureNicheFixtures } from "./niche-store";
 import { toBookOdds, type RawMainOdds } from "./oddspapi-main";
-import { looseSameTeam, matchTeam } from "./player-stats-store";
 import { fixtureForm } from "./team-form";
 import type { BookOdds, FixtureRecord } from "./detect";
 
 /**
- * Database-backed odds cache + the refresh job. Free plan = ~100 calls/day and
- * 10/min, so: one shared snapshot for every user, fixtures priced a few at a
- * time (stalest first), a DB lock so concurrent page loads don't double-spend,
- * and a hard stop when the provider says the quota is gone.
+ * Database-backed odds cache + the refresh job for the main markets. Everything
+ * comes from OddsPapi: its fixture list defines which matches we follow, and one
+ * call per match returns every Danish book next to Pinnacle. One shared snapshot
+ * serves every user; a DB lock stops concurrent page loads double-spending.
  */
 
 /** Re-price a fixture once its odds are this old. */
 const STALE_MS = 8 * 3_600_000;
-/** Re-list fixtures (1 call per day-window) this often. */
-const LIST_EVERY_MS = 12 * 3_600_000;
-/** Only price matches kicking off within this horizon. */
+/** Only follow matches kicking off within this horizon. */
 const HORIZON_MS = 40 * 3_600_000;
-/**
- * At most this many matches are tracked at once (best leagues, soonest first).
- * 30 matches × 3 refreshes a day fits the free plan's 100 calls with headroom.
- */
-const UNIVERSE = 30;
+/** At most this many matches are followed at once (best leagues, soonest first). */
+const UNIVERSE = Number(process.env.ODDS_UNIVERSE) || 30;
 /** Odds calls per run — keeps a run inside the function time limit. */
-const MAX_PER_RUN = 12;
-/** Provider allows 10/min; stay just under. */
-const PACE_MS = 6_500;
-/** Never spend the last few calls of the day. */
-const KEEP_SPARE = 8;
+const MAX_PER_RUN = 24;
+/** Keep this many OddsPapi calls in hand for the player-props feed. */
+const PAPI_RESERVE = 200;
 const LOCK_MS = 4 * 60_000;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** OddsPapi's fixture ids are "id" + a number; the number is our fixture id. */
+const LEGACY_ID_LIMIT = 1_000_000_000_000;
 
 async function getMeta(key: string): Promise<string | null> {
   const row = await db.select().from(feedMeta).where(eq(feedMeta.key, key)).get();
@@ -90,7 +77,7 @@ export async function loadPricedFixtures(): Promise<FixtureRecord[]> {
   const out: FixtureRecord[] = [];
   for (const r of rows) {
     const odds = parse(r.oddsJson);
-    if (!odds || !r.fetchedAt) continue;
+    if (!odds || !r.fetchedAt || r.fixtureId < LEGACY_ID_LIMIT) continue;
     out.push({
       fixtureId: r.fixtureId,
       leagueId: r.leagueId,
@@ -100,6 +87,8 @@ export async function loadPricedFixtures(): Promise<FixtureRecord[]> {
       odds,
       openOdds: parse(r.openJson),
       form: parseForm(r.formJson),
+      homeId: r.homeId,
+      awayId: r.awayId,
       oddsUpdatedAt: r.oddsUpdatedAt,
       firstFetchedAt: r.firstFetchedAt,
       fetchedAt: r.fetchedAt,
@@ -137,27 +126,57 @@ export async function feedStatus(): Promise<FeedStatus> {
     updatedAt: latest?.at ?? null,
     pricedFixtures: count?.n ?? 0,
     refreshing: Number(meta.refresh_lock ?? 0) > now,
-    // API-Football's daily quota only matters when OddsPapi isn't there to price the matches.
-    quotaSpent: Number(meta.blocked_until ?? 0) > now && !oddsPapiConfigured(),
+    quotaSpent: Number(meta.niche_blocked_until ?? 0) > now,
   };
 }
 
 type FixtureRow = typeof oddsFixtures.$inferSelect;
 
-/** The OddsPapi fixture for one of our matches: same league, same two teams, kick-off within hours. */
-async function oddsPapiFixtureId(f: FixtureRow): Promise<string | null> {
-  const rows = await db.select().from(nicheFixtures).where(eq(nicheFixtures.leagueId, f.leagueId)).all();
-  const near = rows.filter((r) => Math.abs(new Date(r.startsAt).getTime() - new Date(f.startsAt).getTime()) < 3 * 3_600_000);
-  const exact = (() => {
-    const home = matchTeam(f.homeTeam, near.map((r) => ({ id: Number(r.homeId ?? 0), name: r.homeTeam })));
-    return home ? near.find((r) => r.homeId === home.id && matchTeam(f.awayTeam, [{ id: 1, name: r.awayTeam }])) : undefined;
-  })();
-  const hit = exact ?? near.find((r) => looseSameTeam(f.homeTeam, r.homeTeam) && looseSameTeam(f.awayTeam, r.awayTeam));
-  return hit?.fixtureId ?? null;
-}
+/** OddsPapi's "id1000001772221346" ↔ the number we store. */
+const toFixtureId = (papiId: string) => Number(papiId.replace(/^id/, ""));
+const toPapiId = (fixtureId: number) => `id${fixtureId}`;
 
-/** Keep this many OddsPapi calls in hand for the props feed. */
-const PAPI_RESERVE = 200;
+/**
+ * Follow the matches OddsPapi lists: one row per upcoming match within the
+ * horizon. (Rows from the old fixture source are dropped.)
+ */
+async function syncFixtures(now: number) {
+  await db.delete(oddsFixtures).where(lt(oddsFixtures.fixtureId, LEGACY_ID_LIMIT));
+  await db.delete(oddsFixtures).where(lt(oddsFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
+  const listed = await db
+    .select()
+    .from(nicheFixtures)
+    .where(
+      sql`${nicheFixtures.startsAt} > ${new Date(now).toISOString()}
+        and ${nicheFixtures.startsAt} < ${new Date(now + HORIZON_MS).toISOString()}`,
+    )
+    .all();
+  for (const r of listed) {
+    const fixtureId = toFixtureId(r.fixtureId);
+    if (!Number.isFinite(fixtureId)) continue;
+    await db
+      .insert(oddsFixtures)
+      .values({
+        fixtureId,
+        leagueId: r.leagueId,
+        startsAt: r.startsAt,
+        homeTeam: r.homeTeam,
+        awayTeam: r.awayTeam,
+        homeId: r.homeId,
+        awayId: r.awayId,
+      })
+      .onConflictDoUpdate({
+        target: oddsFixtures.fixtureId,
+        set: {
+          startsAt: r.startsAt,
+          homeTeam: r.homeTeam,
+          awayTeam: r.awayTeam,
+          homeId: r.homeId,
+          awayId: r.awayId,
+        },
+      });
+  }
+}
 
 /**
  * The matches worth pricing right now: the best-ranked `UNIVERSE` upcoming
@@ -169,7 +188,8 @@ async function pickDue(now: number): Promise<FixtureRow[]> {
     .from(oddsFixtures)
     .where(
       sql`${oddsFixtures.startsAt} > ${new Date(now).toISOString()}
-        and ${oddsFixtures.startsAt} < ${new Date(now + HORIZON_MS).toISOString()}`,
+        and ${oddsFixtures.startsAt} < ${new Date(now + HORIZON_MS).toISOString()}
+        and ${oddsFixtures.fixtureId} >= ${LEGACY_ID_LIMIT}`,
     )
     .all();
   const rank = (f: FixtureRow) => [LEAGUE_PRIORITY[f.leagueId] ?? 9, f.startsAt] as const;
@@ -179,22 +199,9 @@ async function pickDue(now: number): Promise<FixtureRow[]> {
     return pa - pb || ta.localeCompare(tb);
   });
   const cutoff = new Date(now - STALE_MS).toISOString();
-  const tracked = upcoming.slice(0, UNIVERSE);
-  let due = tracked.filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff);
-  // While API-Football is paused (daily quota), only matches OddsPapi can price are worth a try.
-  if (oddsPapiConfigured() && Number((await getMeta("blocked_until")) ?? 0) > now) {
-    const mappable: FixtureRow[] = [];
-    for (const f of due) if (await oddsPapiFixtureId(f)) mappable.push(f);
-    due = mappable;
-  }
-  // Matches priced from the fallback get another go (every 20 min) once OddsPapi knows them.
-  if (oddsPapiConfigured()) {
-    const retryBefore = new Date(now - 20 * 60_000).toISOString();
-    for (const f of tracked) {
-      if (due.includes(f) || f.source === "papi" || !f.fetchedAt || f.fetchedAt >= retryBefore) continue;
-      if (await oddsPapiFixtureId(f)) due.push(f);
-    }
-  }
+  const due = upcoming
+    .slice(0, UNIVERSE)
+    .filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff);
   // Unpriced first, then soonest — a tight budget buys the most useful matches.
   due.sort(
     (a, b) =>
@@ -209,142 +216,88 @@ const NEEDS_TTL_MS = 30_000;
 
 /** True when a refresh would do something — cheap check used before scheduling one. */
 export async function needsRefresh(): Promise<boolean> {
-  // Every page view asks; answer from memory for a few seconds instead of 4+ round trips.
+  if (!oddsPapiConfigured()) return false;
   if (needsCache && Date.now() - needsCache.at < NEEDS_TTL_MS) return needsCache.value;
   await dbReady;
   const now = Date.now();
   const meta = await getAllMeta();
   let value: boolean;
-  if ((Number(meta.blocked_until ?? 0) > now && !oddsPapiConfigured()) || Number(meta.refresh_lock ?? 0) > now) value = false;
-  else if (now - Number(meta.listed_at ?? 0) > LIST_EVERY_MS) value = true;
-  else if (oddsPapiConfigured() && meta.niche_ids_v !== "2") value = true; // OddsPapi list not built yet
-  else value = (await pickDue(now)).length > 0;
+  if (Number(meta.niche_blocked_until ?? 0) > now || Number(meta.refresh_lock ?? 0) > now) value = false;
+  else if (meta.niche_ids_v !== "2") value = true; // OddsPapi fixture list not built yet
+  else {
+    const horizon = new Date(now + HORIZON_MS).toISOString();
+    const [listed, followed] = await Promise.all([
+      db
+        .select({ n: sql<number>`count(*)` })
+        .from(nicheFixtures)
+        .where(sql`${nicheFixtures.startsAt} > ${new Date(now).toISOString()} and ${nicheFixtures.startsAt} < ${horizon}`)
+        .get(),
+      db
+        .select({ n: sql<number>`count(*)` })
+        .from(oddsFixtures)
+        .where(sql`${oddsFixtures.startsAt} > ${new Date(now).toISOString()} and ${oddsFixtures.fixtureId} >= ${LEGACY_ID_LIMIT}`)
+        .get(),
+    ]);
+    value = (listed?.n ?? 0) > (followed?.n ?? 0) || (await pickDue(now)).length > 0;
+  }
   needsCache = { at: now, value };
   return value;
 }
 
-const utcDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-
-function nextUtcMidnight(now: number) {
-  const d = new Date(now);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
-}
-
-async function relist(now: number) {
-  // The free plan only serves a window around today; today + tomorrow is what we need.
-  for (const date of [utcDate(now), utcDate(now + 24 * 3_600_000)]) {
-    const { fixtures } = await listFixtures(date);
-    for (const f of fixtures) {
-      await db
-        .insert(oddsFixtures)
-        .values({ ...f })
-        .onConflictDoUpdate({
-          target: oddsFixtures.fixtureId,
-          set: {
-            startsAt: f.startsAt,
-            homeTeam: f.homeTeam,
-            awayTeam: f.awayTeam,
-          },
-        });
-    }
-    await sleep(PACE_MS);
-  }
-  await setMeta("listed_at", String(now));
-}
-
 /**
- * Refresh the cache: re-list fixtures when due, then price the stalest ones.
- * Safe to call from several requests at once — only one holds the lock.
+ * Refresh the cache: make sure the match list is current, then price the stalest
+ * matches. Safe to call from several requests at once — only one holds the lock.
  */
 export async function refreshOdds(): Promise<{ priced: number; skipped?: string }> {
   await dbReady;
+  if (!oddsPapiConfigured()) return { priced: 0, skipped: "no-key" };
   const now = Date.now();
-  let afPaused = Number((await getMeta("blocked_until")) ?? 0) > now;
-  if (afPaused && !oddsPapiConfigured()) return { priced: 0, skipped: "quota" };
+  if (Number((await getMeta("niche_blocked_until")) ?? 0) > now) return { priced: 0, skipped: "quota" };
   if (Number((await getMeta("refresh_lock")) ?? 0) > now) return { priced: 0, skipped: "locked" };
   await setMeta("refresh_lock", String(now + LOCK_MS));
 
   let priced = 0;
   try {
-    // Drop matches that have kicked off.
-    await db.delete(oddsFixtures).where(lt(oddsFixtures.startsAt, new Date(now - 3_600_000).toISOString()));
-
-    if (!afPaused && now - Number((await getMeta("listed_at")) ?? 0) > LIST_EVERY_MS) {
-      try {
-        await relist(now);
-      } catch (err) {
-        if (!(err instanceof ApiFootballError)) throw err;
-        afPaused = true;
-        await setMeta("blocked_until", String(nextUtcMidnight(Date.now())));
-      }
-    }
-
-    // OddsPapi needs its fixture list (and our mapping onto it) before it can price a match.
-    if (oddsPapiConfigured()) await ensureNicheFixtures().catch((err) => console.error("[odds] OddsPapi list failed:", err));
+    // OddsPapi's own fixture list defines what we follow (and carries the team ids).
+    await ensureNicheFixtures().catch((err) => console.error("[odds] OddsPapi list failed:", err));
+    await syncFixtures(now);
 
     const due = await pickDue(now);
+    const dicts = due.length ? await loadMarketDicts() : null;
 
-    for (const f of due.slice(0, oddsPapiConfigured() ? MAX_PER_RUN * 2 : MAX_PER_RUN)) {
-      // OddsPapi first: it prices the Danish books (LeoVegas, Betinia …) next to Pinnacle in one call.
-      let odds: BookOdds = {};
-      let updatedAt: string | null = null;
-      let remaining: number | null = null;
-      let viaPapi = false;
-      if (oddsPapiConfigured() && Number((await getMeta("niche_remaining")) || Infinity) > PAPI_RESERVE) {
-        try {
-          const papiId = await oddsPapiFixtureId(f);
-          if (papiId) {
-            const raw = await fetchFixtureNicheOdds(papiId);
-            odds = toBookOdds(raw.odds as RawMainOdds, (await loadMarketDicts()).main);
-            updatedAt = new Date().toISOString();
-            viaPapi = Object.keys(odds).length > 0;
-            if (raw.remaining !== null) await setMeta("niche_remaining", String(raw.remaining));
-          }
-        } catch (err) {
-          console.error("[odds] OddsPapi failed, falling back:", err);
+    for (const f of due.slice(0, MAX_PER_RUN)) {
+      if (Number((await getMeta("niche_remaining")) || Infinity) <= PAPI_RESERVE) break;
+      try {
+        const raw = await fetchFixtureNicheOdds(toPapiId(f.fixtureId));
+        if (raw.remaining !== null) await setMeta("niche_remaining", String(raw.remaining));
+        const odds = toBookOdds(raw.odds as RawMainOdds, dicts!.main);
+        const fetchedAt = new Date().toISOString();
+        const json = JSON.stringify(odds);
+        await db
+          .update(oddsFixtures)
+          .set({
+            oddsJson: json,
+            openJson: f.openJson ?? json,
+            oddsUpdatedAt: fetchedAt,
+            firstFetchedAt: f.firstFetchedAt ?? fetchedAt,
+            fetchedAt,
+            source: "papi",
+          })
+          .where(eq(oddsFixtures.fixtureId, f.fixtureId));
+        priced++;
+        const form = await fixtureForm(f.homeId, f.awayId);
+        if (form) await db.update(oddsFixtures).set({ formJson: JSON.stringify(form) }).where(eq(oddsFixtures.fixtureId, f.fixtureId));
+      } catch (err) {
+        if (err instanceof OddsPapiError && err.quotaSpent) {
+          // Re-check in 12 h: the allowance either reset or we keep waiting.
+          await setMeta("niche_blocked_until", String(Date.now() + 12 * 3_600_000));
+          break;
         }
+        console.error("[odds] could not price a match:", err);
       }
-      if (!viaPapi) {
-        // Fallback to API-Football — unless its daily quota is gone; then leave this match as it was.
-        if (afPaused) continue;
-        try {
-          ({ odds, updatedAt, remaining } = await fetchFixtureOdds(f.fixtureId));
-        } catch (err) {
-          if (!(err instanceof ApiFootballError)) throw err;
-          afPaused = true;
-          await setMeta("blocked_until", String(nextUtcMidnight(Date.now())));
-          continue;
-        }
-      }
-      const fetchedAt = new Date().toISOString();
-      const json = JSON.stringify(odds);
-      await db
-        .update(oddsFixtures)
-        .set({
-          oddsJson: json,
-          openJson: f.openJson ?? json,
-          oddsUpdatedAt: updatedAt,
-          firstFetchedAt: f.firstFetchedAt ?? fetchedAt,
-          fetchedAt,
-          source: viaPapi ? "papi" : "af",
-        })
-        .where(eq(oddsFixtures.fixtureId, f.fixtureId));
-      priced++;
-      const form = await fixtureForm(f.leagueId, f.homeTeam, f.awayTeam);
-      if (form) {
-        await db.update(oddsFixtures).set({ formJson: JSON.stringify(form) }).where(eq(oddsFixtures.fixtureId, f.fixtureId));
-      }
-      if (remaining !== null) {
-        await setMeta("api_remaining", String(remaining));
-        if (remaining <= KEEP_SPARE) {
-          afPaused = true;
-          await setMeta("blocked_until", String(nextUtcMidnight(Date.now())));
-        }
-      }
-      // The rate limit only applies to API-Football; OddsPapi can go as fast as we like.
-      if (!viaPapi) await sleep(PACE_MS);
     }
-    // Fixtures priced earlier have no form yet — fill a few in (no API-Football calls).
+
+    // Matches priced before form existed get it too (SportAPI only, cached).
     const missing = await db
       .select()
       .from(oddsFixtures)
@@ -352,20 +305,15 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
       .limit(6)
       .all();
     for (const f of missing) {
-      const form = await fixtureForm(f.leagueId, f.homeTeam, f.awayTeam);
+      const form = await fixtureForm(f.homeId, f.awayId);
       if (form) await db.update(oddsFixtures).set({ formJson: JSON.stringify(form) }).where(eq(oddsFixtures.fixtureId, f.fixtureId));
     }
     return { priced };
   } catch (err) {
-    if (err instanceof ApiFootballError && err.quotaSpent) {
-      await setMeta("blocked_until", String(nextUtcMidnight(Date.now())));
-    } else {
-      console.error("[odds] refresh failed:", err);
-    }
+    console.error("[odds] refresh failed:", err);
     return { priced };
   } finally {
     needsCache = null;
     await setMeta("refresh_lock", "0");
   }
 }
-

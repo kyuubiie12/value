@@ -229,6 +229,7 @@ export function proveNiche(c: NicheCandidate, name: string, stats: PlayerStatCon
     homeForm: "",
     awayForm: "",
     startsAt: fx.startsAt,
+    ...(fx.homeId && fx.awayId ? { teamIds: { home: fx.homeId, away: fx.awayId } } : {}),
     market: CATEGORY_MARKET[category],
     marketLabel: CATEGORY_LABEL[category],
     selection: `${name} ${c.outcomeLabel} ${c.noun}`,

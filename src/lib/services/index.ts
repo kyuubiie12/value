@@ -31,8 +31,8 @@ import type {
  * still generated in `src/lib/mock-data`. Swapping in a real odds/AI backend
  * later means changing only the factory calls below.
  */
-/** Real odds (API-Football) when a key is set, else the generated demo feed. */
-export const valueService: ValueService = process.env.API_FOOTBALL_KEY
+/** Real odds (OddsPapi) when its key is set, else the generated demo feed. */
+export const valueService: ValueService = process.env.RAPIDAPI_ODDSPAPI_KEY
   ? createOddsValueService()
   : createDbValueService();
 export const portfolioService: PortfolioService = createDbPortfolioService();
@@ -40,11 +40,11 @@ export const bookmakerService: BookmakerService = createMockBookmakerService();
 export const leagueService: LeagueService = createMockLeagueService();
 export const settingsService: SettingsService = createDbSettingsService();
 /** Real notifications from the background job when live odds are on; demo ones otherwise. */
-export const notificationService: NotificationService = process.env.API_FOOTBALL_KEY
+export const notificationService: NotificationService = process.env.RAPIDAPI_ODDSPAPI_KEY
   ? createRealNotificationService()
   : createDbNotificationService();
 /** With live odds the track record is real (graded from match results); otherwise demo data. */
-export const trackRecordService: TrackRecordService = process.env.API_FOOTBALL_KEY
+export const trackRecordService: TrackRecordService = process.env.RAPIDAPI_ODDSPAPI_KEY
   ? createDbTrackRecordService()
   : createMockTrackRecordService();
 

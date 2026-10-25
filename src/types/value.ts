@@ -84,6 +84,8 @@ export interface ValueOpportunity {
    * per-game rate for the stat and the chance that rate implies for this line.
    */
   playerStats?: PlayerStatContext;
+  /** SportAPI/OddsPapi team ids — how a pick finds its finished match later. */
+  teamIds?: { home: number; away: number };
   /** Both teams' recent matches (newest first) — the numbers behind a result/goals bet. */
   teamForm?: { home: TeamFormMatch[]; away: TeamFormMatch[] };
   /** Player props only: what to look up after the match to grade the pick. */

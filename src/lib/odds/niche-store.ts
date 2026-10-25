@@ -167,7 +167,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
       // A prop is only shown when the player's own recent matches prove the price too big.
       // No record (no data access, too few matches) → nothing is shown for him.
       const opps: ValueOpportunity[] = [];
-      const history = candidates.length ? await fixtureHistory(f.leagueId, f.homeTeam, f.awayTeam, { homeId: f.homeId, awayId: f.awayId }) : null;
+      const history = candidates.length ? await fixtureHistory({ homeId: f.homeId, awayId: f.awayId }) : null;
       if (history) {
         const names = await resolveNames([...new Set(candidates.map((c) => c.playerId))]);
         const roster = rosterFromHistory(history.players);

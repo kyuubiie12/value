@@ -2,10 +2,9 @@ import "server-only";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import type { MarketType, SettledPick, ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
-import { feedMeta, trackPicks } from "@/lib/db/schema";
-import { apiFootballConfigured, lastKnownRemaining } from "@/lib/odds/api-football";
+import { trackPicks } from "@/lib/db/schema";
 import { findPlayer } from "@/lib/odds/player-model";
-import { matchTeam } from "@/lib/odds/player-stats-store";
+import { findFinishedMatch, matchCorners, matchPlayers, sportApiConfigured, sportApiRemaining } from "@/lib/odds/sportapi";
 import {
   gradeMain,
   gradeProp,
@@ -15,13 +14,6 @@ import {
   type PickOutcome,
   type PropSpec,
 } from "./grade";
-import {
-  fetchCorners,
-  fetchDayFixtures,
-  fetchFixtureOutcome,
-  fetchMatchPlayers,
-  type DayFixture,
-} from "./results-api";
 
 /** A value bet only enters the track record at or above this edge (%). */
 const TRACK_MIN_EDGE = 3;
@@ -33,14 +25,17 @@ const GIVE_UP_AFTER_MS = 4 * 24 * 3_600_000;
 const MAX_FIXTURES_PER_RUN = 10;
 const KEEP_QUOTA = 15;
 
-type GradeJson =
-  | { type: "main"; apiFixtureId: number; spec: MainSpec }
-  | { type: "prop"; spec: PropSpec };
+type GradeJson = { teamIds?: { home: number; away: number } } & (
+  | { type: "main"; spec: MainSpec }
+  | { type: "prop"; spec: PropSpec }
+);
 
 function gradeFor(o: ValueOpportunity): GradeJson | null {
-  if (o.propSpec) return { type: "prop", spec: o.propSpec };
+  // Without both team ids the finished match can't be found again — don't track it.
+  if (!o.teamIds) return null;
+  if (o.propSpec) return { type: "prop", spec: o.propSpec, teamIds: o.teamIds };
   const main = parseMainId(o.id);
-  return main ? { type: "main", ...main } : null;
+  return main ? { type: "main", spec: main.spec, teamIds: o.teamIds } : null;
 }
 
 /** Store new value bets at their first price; keep the "closing" price fresh until kick-off. */
@@ -98,35 +93,13 @@ async function setStatus(ids: string[], status: PickOutcome) {
 }
 
 async function quotaLeft(): Promise<boolean> {
-  // The freshest number we have: this process's last response, else what the odds job stored.
-  const live = lastKnownRemaining();
-  const row = await db.select().from(feedMeta).where(eq(feedMeta.key, "api_remaining")).get();
-  const remaining = live ?? Number(row?.value ?? NaN);
-  return !(Number.isFinite(remaining) && remaining < KEEP_QUOTA);
+  const left = sportApiRemaining();
+  return !(left !== null && left < KEEP_QUOTA);
 }
 
-/** Find a match's API-Football id from its teams + kick-off (cached per day within a run). */
-async function resolveFixtureId(
-  p: Row,
-  days: Map<string, DayFixture[]>,
-): Promise<number | null> {
-  const date = p.startsAt.slice(0, 10);
-  if (!days.has(date)) days.set(date, await fetchDayFixtures(date));
-  const teamsOfLeague = days.get(date)!.filter((f) => f.leagueId === p.leagueId);
-  const home = matchTeam(p.homeTeam, teamsOfLeague.map((f) => ({ id: f.id, name: f.homeTeam })));
-  if (!home) return null;
-  const hit = teamsOfLeague.find(
-    (f) =>
-      f.id === home.id &&
-      matchTeam(p.awayTeam, [{ id: f.id, name: f.awayTeam }]) &&
-      Math.abs(new Date(f.startsAt).getTime() - new Date(p.startsAt).getTime()) < 3 * 3_600_000,
-  );
-  return hit?.id ?? null;
-}
-
-/** Grade every pending pick whose match is over. Fails soft; unresolved picks stay pending. */
+/** Grade every pending pick whose match is over (SportAPI). Fails soft; unresolved picks stay pending. */
 export async function settlePending(): Promise<{ settled: number }> {
-  if (!apiFootballConfigured()) return { settled: 0 };
+  if (!sportApiConfigured()) return { settled: 0 };
   await dbReady;
   const now = Date.now();
   const due = await db
@@ -141,81 +114,66 @@ export async function settlePending(): Promise<{ settled: number }> {
     .all();
   if (!due.length) return { settled: 0 };
 
-  // Picks that have outlived the provider's data are voided rather than left hanging forever.
+  // Picks that have outlived the provider's data (or can't be placed) are voided, not left hanging.
   const stale = due.filter((p) => now - new Date(p.startsAt).getTime() > GIVE_UP_AFTER_MS);
   await setStatus(stale.map((p) => p.id), "void");
 
-  // Group by match: one set of API calls grades every pick on it.
-  const days = new Map<string, DayFixture[]>();
-  const byMatch = new Map<string, { apiId: number | null; picks: Row[] }>();
+  // Group by match: one set of calls grades every pick on it.
+  const byMatch = new Map<string, { teamIds: { home: number; away: number }; picks: Row[] }>();
   for (const p of due.filter((x) => !stale.includes(x))) {
     const g = JSON.parse(p.gradeJson) as GradeJson;
-    let key: string;
-    let apiId: number | null = null;
-    if (g.type === "main") {
-      apiId = g.apiFixtureId;
-      key = `m${apiId}`;
-    } else {
-      key = `p${p.leagueId}|${p.homeTeam}|${p.awayTeam}|${p.startsAt}`;
-    }
-    const entry = byMatch.get(key) ?? { apiId, picks: [] };
+    if (!g.teamIds) continue; // legacy pick without team ids — voided once stale
+    const key = `${g.teamIds.home}-${g.teamIds.away}-${p.startsAt}`;
+    const entry = byMatch.get(key) ?? { teamIds: g.teamIds, picks: [] };
     entry.picks.push(p);
     byMatch.set(key, entry);
   }
 
   let settled = stale.length;
-  let fixtures = 0;
+  let matches = 0;
   try {
     for (const entry of byMatch.values()) {
-      if (fixtures >= MAX_FIXTURES_PER_RUN || !(await quotaLeft())) break;
-      fixtures++;
+      if (matches >= MAX_FIXTURES_PER_RUN || !(await quotaLeft())) break;
+      matches++;
       try {
-      const apiId = entry.apiId ?? (await resolveFixtureId(entry.picks[0], days));
-      if (!apiId) continue; // can't place the match yet — try again next run
+        const found = await findFinishedMatch(entry.teamIds.home, entry.teamIds.away, entry.picks[0].startsAt);
+        if (!found) continue; // not finished (or not listed yet) — try again next run
 
-      const outcome = await fetchFixtureOutcome(apiId);
-      if (outcome.state === "pending") continue;
-      if (outcome.state === "void") {
-        await setStatus(entry.picks.map((p) => p.id), "void");
-        settled += entry.picks.length;
-        continue;
-      }
+        const needCorners = entry.picks.some((p) => {
+          const g = JSON.parse(p.gradeJson) as GradeJson;
+          return g.type === "main" && g.spec.kind === "corners";
+        });
+        const needPlayers = entry.picks.some((p) => (JSON.parse(p.gradeJson) as GradeJson).type === "prop");
+        const corners = needCorners ? await matchCorners(found.eventId) : null;
+        const players = needPlayers ? await matchPlayers(found.eventId) : [];
+        const roster = players.map((p) => ({
+          id: p.id, first: "", last: "", name: p.name, position: "", apps: 0, minutes: 0,
+          fouls: 0, tackles: 0, shots: 0, shotsOn: 0, cards: 0, saves: 0,
+        }));
 
-      const needCorners = entry.picks.some((p) => {
-        const g = JSON.parse(p.gradeJson) as GradeJson;
-        return g.type === "main" && g.spec.kind === "corners";
-      });
-      const needPlayers = entry.picks.some((p) => (JSON.parse(p.gradeJson) as GradeJson).type === "prop");
-      const corners = needCorners ? await fetchCorners(apiId) : null;
-      const players = needPlayers ? await fetchMatchPlayers(apiId) : [];
-      const roster = players.map((p) => ({
-        id: p.id, first: "", last: "", name: p.name, position: "", apps: 0, minutes: 0,
-        fouls: 0, tackles: 0, shots: 0, shotsOn: 0, cards: 0, saves: 0,
-      }));
-
-      const won: string[] = [];
-      const lost: string[] = [];
-      const voided: string[] = [];
-      for (const p of entry.picks) {
-        const g = JSON.parse(p.gradeJson) as GradeJson;
-        let result: PickOutcome | null = null;
-        if (g.type === "main") {
-          result = gradeMain(g.spec, { home: outcome.home, away: outcome.away, corners });
-        } else {
-          const hit = findPlayer(roster, g.spec.player);
-          const stat = hit ? players.find((x) => x.id === hit.id)?.stat : undefined;
-          result = stat ? gradeProp(g.spec, stat) : null; // unknown player → try again later
+        const won: string[] = [];
+        const lost: string[] = [];
+        const voided: string[] = [];
+        for (const p of entry.picks) {
+          const g = JSON.parse(p.gradeJson) as GradeJson;
+          let result: PickOutcome | null = null;
+          if (g.type === "main") {
+            result = gradeMain(g.spec, { home: found.home, away: found.away, corners });
+          } else {
+            const hit = findPlayer(roster, g.spec.player);
+            const stat = hit ? players.find((x) => x.id === hit.id)?.stat : undefined;
+            result = stat ? gradeProp(g.spec, stat) : null; // unknown player → try again later
+          }
+          if (result === "won") won.push(p.id);
+          else if (result === "lost") lost.push(p.id);
+          else if (result === "void") voided.push(p.id);
         }
-        if (result === "won") won.push(p.id);
-        else if (result === "lost") lost.push(p.id);
-        else if (result === "void") voided.push(p.id);
-      }
-      await setStatus(won, "won");
-      await setStatus(lost, "lost");
-      await setStatus(voided, "void");
-      settled += won.length + lost.length + voided.length;
+        await setStatus(won, "won");
+        await setStatus(lost, "lost");
+        await setStatus(voided, "void");
+        settled += won.length + lost.length + voided.length;
       } catch (err) {
-        // One match failing (provider error, day outside the plan) must not block the rest.
+        // One match failing (provider error) must not block the rest.
         console.error("[track] could not grade a match:", err);
       }
     }

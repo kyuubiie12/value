@@ -148,3 +148,50 @@ export async function matchPlayers(eventId: number): Promise<MatchPlayer[]> {
   }
   return out;
 }
+
+export interface FinishedMatch {
+  eventId: number;
+  /** Full-time goals, home and away as the fixture lists them. */
+  home: number;
+  away: number;
+}
+
+/**
+ * The finished match between two teams around a kick-off time (from the home
+ * team's latest results, fresh — not cached), or null while it isn't over.
+ */
+export async function findFinishedMatch(
+  homeId: number,
+  awayId: number,
+  startsAt: string,
+): Promise<FinishedMatch | null> {
+  const want = new Date(startsAt).getTime();
+  for (let page = 0; page < 2; page++) {
+    const d = await call<{ events?: RawEvent[]; hasNextPage?: boolean }>(`/api/v1/team/${homeId}/events/last/${page}`);
+    for (const e of d.events ?? []) {
+      if (e.status?.type !== "finished" || e.homeTeam.id !== homeId || e.awayTeam.id !== awayId) continue;
+      if (Math.abs(e.startTimestamp * 1000 - want) > 6 * 3_600_000) continue;
+      const home = e.homeScore?.current;
+      const away = e.awayScore?.current;
+      if (typeof home !== "number" || typeof away !== "number") continue;
+      return { eventId: e.id, home, away };
+    }
+    if (!d.hasNextPage) break;
+  }
+  return null;
+}
+
+interface RawStatistics {
+  statistics?: { period?: string; groups?: { statisticsItems?: { key?: string; homeValue?: number; awayValue?: number }[] }[] }[];
+}
+
+/** Total corners in a match (both teams, full time), or null if the provider has none. */
+export async function matchCorners(eventId: number): Promise<number | null> {
+  const d = await call<RawStatistics>(`/api/v1/event/${eventId}/statistics`);
+  const all = d.statistics?.find((p) => p.period === "ALL") ?? d.statistics?.[0];
+  for (const g of all?.groups ?? []) {
+    const c = g.statisticsItems?.find((i) => i.key === "cornerKicks");
+    if (c) return (c.homeValue ?? 0) + (c.awayValue ?? 0);
+  }
+  return null;
+}

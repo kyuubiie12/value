@@ -25,6 +25,9 @@ export interface FixtureRecord {
   oddsUpdatedAt: string | null;
   firstFetchedAt: string | null;
   fetchedAt: string;
+  /** OddsPapi/SportAPI team ids (when known). */
+  homeId?: number | null;
+  awayId?: number | null;
   /** Both teams' recent matches, newest first (when known). */
   form?: { home: TeamFormMatch[]; away: TeamFormMatch[] } | null;
 }
@@ -293,6 +296,7 @@ export function detectValue(rec: FixtureRecord): ValueOpportunity[] {
         homeForm: formString(rec.form?.home),
         awayForm: formString(rec.form?.away),
         ...(rec.form ? { teamForm: rec.form } : {}),
+        ...(rec.homeId && rec.awayId ? { teamIds: { home: rec.homeId, away: rec.awayId } } : {}),
         startsAt: rec.startsAt,
         market: g.market,
         marketLabel: g.marketLabel,
