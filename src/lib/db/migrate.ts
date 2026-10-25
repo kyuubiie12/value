@@ -105,6 +105,52 @@ const STATEMENTS = [
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS team_players (
+    team_id INTEGER NOT NULL,
+    season INTEGER NOT NULL,
+    players_json TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (team_id, season)
+  )`,
+  `CREATE TABLE IF NOT EXISTS track_picks (
+    id TEXT PRIMARY KEY,
+    league_id TEXT NOT NULL,
+    league TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    market TEXT NOT NULL,
+    market_label TEXT NOT NULL,
+    selection TEXT NOT NULL,
+    bookmaker_id TEXT NOT NULL,
+    posted_odds REAL NOT NULL,
+    closing_odds REAL NOT NULL,
+    edge_percent REAL NOT NULL,
+    confidence TEXT NOT NULL,
+    grade_json TEXT NOT NULL,
+    posted_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    settled_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS track_picks_status ON track_picks(status, starts_at)`,
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    href TEXT,
+    created_at TEXT NOT NULL,
+    read INTEGER NOT NULL DEFAULT 0,
+    dedupe_key TEXT NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS notifications_dedupe ON notifications(user_id, dedupe_key)`,
+  `CREATE INDEX IF NOT EXISTS notifications_user ON notifications(user_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS notify_seen (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,
+    PRIMARY KEY (user_id, key)
+  )`,
   `CREATE TABLE IF NOT EXISTS feed_meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL

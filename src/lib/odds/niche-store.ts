@@ -4,6 +4,8 @@ import type { ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, playerNames } from "@/lib/db/schema";
 import { LEAGUE_PRIORITY } from "./config";
+import { findPlayer, playerContext } from "./player-model";
+import { fixtureRoster } from "./player-stats-store";
 import {
   fetchFixtureNicheOdds,
   fetchNicheMarkets,
@@ -162,9 +164,22 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
       const at = new Date().toISOString();
       const candidates: NicheCandidate[] = detectNiche(f, odds, markets, at);
       const names = await resolveNames([...new Set(candidates.map((c) => c.playerId))]);
-      const opps: ValueOpportunity[] = candidates.map((c) =>
-        finalizeNiche(c, names.get(c.playerId) ?? `Spiller ${c.playerId}`),
-      );
+      // What each player has actually done this season, when the plan lets us read it.
+      const rosterInfo = candidates.length
+        ? await fixtureRoster(f.leagueId, f.homeTeam, f.awayTeam)
+        : null;
+      const opps: ValueOpportunity[] = [];
+      for (const c of candidates) {
+        const name = names.get(c.playerId) ?? `Spiller ${c.playerId}`;
+        const player = rosterInfo ? findPlayer(rosterInfo.players, name) : null;
+        const stats =
+          player && rosterInfo
+            ? playerContext(c.category, c.outcomeLabel, player, rosterInfo.season, name, rosterInfo.fromSeason)
+            : null;
+        // His own record says the price is too short for the chance → not a value bet.
+        if (stats && stats.modelProbability < 1 / c.bestOdds) continue;
+        opps.push(finalizeNiche(c, name, stats));
+      }
       await db
         .update(nicheFixtures)
         .set({ oppsJson: JSON.stringify(opps), fetchedAt: at })

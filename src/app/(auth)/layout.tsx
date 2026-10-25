@@ -34,6 +34,7 @@ export default async function AuthLayout({
             offentligt.
           </p>
 
+          {stats.picks > 0 && (
           <dl className="mt-9 grid grid-cols-3 gap-5 border-t border-line pt-7">
             <Stat
               value={formatPercent(stats.roi, { signed: true })}
@@ -45,12 +46,13 @@ export default async function AuthLayout({
             />
             <Stat value={String(stats.picks)} label="Picks gjort op" />
           </dl>
+          )}
         </div>
 
         <p className="relative z-10 text-xs leading-relaxed text-subtle">
           Analyse- og trackingværktøj. Vi formidler ikke spil og placerer ingen
-          væddemål. Spil ansvarligt · 18+ · Track record siden{" "}
-          {formatDate(stats.since)}
+          væddemål. Spil ansvarligt · 18+
+          {stats.picks > 0 && <> · Track record siden {formatDate(stats.since)}</>}
         </p>
       </aside>
 

@@ -26,6 +26,24 @@ export function explainOpportunity(o: ValueOpportunity): Explanation {
   const others = o.quotes.filter((q) => q.bookmakerId !== o.bestBookmakerId);
 
   const points: string[] = [];
+  const st = o.playerStats;
+  const yy = (y: number) => `${y}/${String((y + 1) % 100).padStart(2, "0")}`;
+  const seasonLabel = st
+    ? st.fromSeason && st.fromSeason < st.season
+      ? `${yy(st.fromSeason)} og ${yy(st.season)}`
+      : yy(st.season)
+    : "";
+
+  // What the player has actually done — the evidence a user can relate to.
+  if (st) {
+    const rate = st.perGame.toFixed(1).replace(".", ",");
+    points.push(
+      `${st.player} har i ${seasonLabel} ${st.total} ${st.metric} på ${st.games} kampe — ${rate} pr. kamp.`,
+    );
+    points.push(
+      `Med den rate rammer han ${st.line}+ ${st.metric} i ca. ${pct(st.modelProbability, 0)} af kampene. Det svarer til fair odds på ${formatOdds(st.modelFairOdds)} — og ${bookName} giver ${formatOdds(o.bestOdds)}.`,
+    );
+  }
 
   if (consensus) {
     points.push(
@@ -55,7 +73,9 @@ export function explainOpportunity(o: ValueOpportunity): Explanation {
     );
   }
 
-  const headline = consensus
+  const headline = st
+    ? `${st.player} tager ${st.perGame.toFixed(1).replace(".", ",")} ${st.metric} pr. kamp, så ${st.line}+ lander i ca. ${pct(st.modelProbability, 0)} af kampene. Prisen hos ${bookName} (${formatOdds(o.bestOdds)}) kræver kun ${pct(1 / o.bestOdds, 0)}.`
+    : consensus
     ? `${bookName} giver ${formatOdds(o.bestOdds)} — de andre danske bookmakere giver i snit ${formatOdds(averageOf(others.map((q) => q.price)))} på det samme spil.`
     : `Prisen er ${formatPercent(o.bestOdds / o.fairOdds - 1, { digits: 0 })} over fair odds fra Pinnacle.`;
 
@@ -63,7 +83,10 @@ export function explainOpportunity(o: ValueOpportunity): Explanation {
     ? "Der findes ingen skarp bookmaker på spiller-props, så det her er en prisforskel mellem bookmakere, ikke en bevist fejl. Tjek at linjen er den samme, før du spiller, og brug små indsatser."
     : "Value betyder ikke, at spillet vinder — kun at prisen er bedre end chancen. Det betaler sig over mange spil, ikke hvert enkelt.";
 
-  return { headline, points, caveat };
+  const statNote = st
+    ? " Statistikken ser kun på hans gennemsnit i sæsonen — ikke på modstanderen, om han starter eller hvor mange minutter han får."
+    : "";
+  return { headline, points, caveat: caveat + statNote };
 }
 
 function averageOf(values: number[]): number {

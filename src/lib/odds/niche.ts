@@ -1,6 +1,7 @@
-import type { Confidence, MarketType, OddsQuote, ValueOpportunity } from "@/types";
+import type { Confidence, MarketType, OddsQuote, PlayerStatContext, ValueOpportunity } from "@/types";
 import { expectedValue, kellyStake } from "@/lib/betting-math";
 import { LEAGUE_MAP } from "@/lib/mock-data/leagues";
+import { lineFromLabel } from "./player-model";
 
 /**
  * Player-prop value from OddsPapi. There is no sharp book for these markets, so
@@ -105,6 +106,7 @@ const dk = (n: number) => n.toFixed(2).replace(".", ",");
 
 export interface NicheCandidate extends Omit<ValueOpportunity, "selection" | "read"> {
   playerId: number;
+  category: NicheCategory;
   /** The line, e.g. "2+" — combined with the player name once names are resolved. */
   outcomeLabel: string;
   noun: string;
@@ -210,6 +212,7 @@ export function detectNiche(
       booksCount: quotes.length,
       detectedAt: at,
       playerId: g.playerId,
+      category,
       outcomeLabel: label,
       noun: CATEGORY_NOUN[category],
     });
@@ -224,12 +227,19 @@ export function displayName(raw: string): string {
 }
 
 /** Attach the resolved player name to a candidate, producing a feed opportunity. */
-export function finalizeNiche(c: NicheCandidate, name: string): ValueOpportunity {
-  const { playerId, outcomeLabel, noun, ...rest } = c;
+export function finalizeNiche(
+  c: NicheCandidate,
+  name: string,
+  playerStats?: PlayerStatContext | null,
+): ValueOpportunity {
+  const { playerId, category, outcomeLabel, noun, ...rest } = c;
   void playerId;
+  const line = lineFromLabel(outcomeLabel);
   return {
     ...rest,
+    ...(line !== null ? { propSpec: { player: name, stat: category, line } } : {}),
     selection: `${name} ${outcomeLabel} ${noun}`,
+    ...(playerStats ? { playerStats } : {}),
     read: false,
   };
 }

@@ -69,6 +69,14 @@ export interface ValueOpportunity {
    */
   statContext?: MarketStatContext;
 
+  /**
+   * What the player has actually done this season (player props only): their
+   * per-game rate for the stat and the chance that rate implies for this line.
+   */
+  playerStats?: PlayerStatContext;
+  /** Player props only: what to look up after the match to grade the pick. */
+  propSpec?: { player: string; stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards"; line: number };
+
   /** Every price we saw for this selection. */
   quotes: OddsQuote[];
   /** How many bookmakers have priced this selection. */
@@ -98,6 +106,25 @@ export interface MarketStatContext {
   h2hMatches: number;
   /** The over/under line this opportunity is priced on. */
   line: number;
+}
+
+/** A player's season record for the stat behind a prop, and what it implies. */
+export interface PlayerStatContext {
+  player: string;
+  /** Season start year, e.g. 2026 = 2026/27. */
+  season: number;
+  /** Earliest season pooled into the rate (set when last season was added for a steadier sample). */
+  fromSeason?: number;
+  /** Stat label in Danish plural, e.g. "fouls". */
+  metric: string;
+  games: number;
+  total: number;
+  perGame: number;
+  /** The bet needs at least this many (the "2+" in "2+ fouls"). */
+  line: number;
+  /** Chance of reaching the line if the player repeats his rate (Poisson). */
+  modelProbability: number;
+  modelFairOdds: number;
 }
 
 export interface ValueFilters {

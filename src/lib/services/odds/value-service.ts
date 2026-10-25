@@ -11,6 +11,7 @@ import { detectValue } from "@/lib/odds/detect";
 import { feedStatus, loadPricedFixtures, needsRefresh, refreshOdds } from "@/lib/odds/store";
 import { oddsPapiConfigured } from "@/lib/odds/oddspapi";
 import { loadNicheOpportunities, needsNicheRefresh, refreshNiche } from "@/lib/odds/niche-store";
+import { needsTrackingJob, runTrackingJob } from "@/lib/track/job";
 import type { ValueService } from "../types";
 
 /**
@@ -46,6 +47,8 @@ export function createOddsValueService(): ValueService {
       // Keep the cache warm in the background; this request is served from what we have.
       if (await needsRefresh()) after(() => refreshOdds());
       if (oddsPapiConfigured() && (await needsNicheRefresh())) after(() => refreshNiche());
+      // Save the bets we're showing and grade the ones whose match is over.
+      if (await needsTrackingJob()) after(() => runTrackingJob());
       const [all, read] = await Promise.all([detectAll(), requireUserId().then(readIds)]);
       return filterOpportunities(
         all.map((o) => ({ ...o, read: read.has(o.id) })),

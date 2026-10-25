@@ -1,6 +1,7 @@
 import "server-only";
 import { BOOKMAKER_BY_API_ID, LEAGUE_BY_API_ID, WANTED_BETS } from "./config";
 import type { BookOdds } from "./detect";
+import type { PlayerSeasonStats } from "./player-model";
 
 /**
  * Thin API-Football (api-sports.io v3) client. Server only; the key never
@@ -27,6 +28,10 @@ interface ApiEnvelope<T> {
   response: T[];
 }
 
+/** Calls left today as of the latest response in this process (null until one is made). */
+let lastRemaining: number | null = null;
+export const lastKnownRemaining = () => lastRemaining;
+
 async function call<T>(
   path: string,
   params: Record<string, string>,
@@ -40,6 +45,7 @@ async function call<T>(
   });
   const remainingHeader = res.headers.get("x-ratelimit-requests-remaining");
   const remaining = remainingHeader === null ? null : Number(remainingHeader);
+  if (remaining !== null) lastRemaining = remaining;
 
   if (!res.ok) throw new ApiFootballError(`API-Football ${res.status}`, res.status === 429);
   const json = (await res.json()) as ApiEnvelope<T>;
@@ -52,6 +58,8 @@ async function call<T>(
   }
   return { rows: json.response, remaining };
 }
+
+export const apiFootballCall = call;
 
 export interface ListedFixture {
   fixtureId: number;
@@ -117,4 +125,76 @@ export async function fetchFixtureOdds(fixtureId: number) {
     }
   }
   return { odds, updatedAt: row?.update ?? null, remaining };
+}
+
+interface RawTeamRow {
+  team: { id: number; name: string };
+}
+
+/** Teams of one league-season: name → API-Football team id. */
+export async function fetchLeagueTeams(leagueApiId: number, season: number) {
+  const { rows } = await call<RawTeamRow>("/teams", {
+    league: String(leagueApiId),
+    season: String(season),
+  });
+  return rows.map((r) => ({ id: r.team.id, name: r.team.name }));
+}
+
+interface RawPlayerRow {
+  player: { id: number; name: string; firstname?: string; lastname?: string };
+  statistics: {
+    team: { id: number };
+    games: { appearences: number | null; minutes: number | null; position?: string };
+    shots: { total: number | null; on: number | null };
+    goals: { saves: number | null };
+    tackles: { total: number | null };
+    fouls: { committed: number | null };
+    cards: { yellow: number | null; yellowred: number | null; red: number | null };
+  }[];
+}
+
+const n = (v: number | null | undefined) => v ?? 0;
+
+/**
+ * Every player of a team with their season totals, summed over all competitions
+ * the team played in (league + cups), one API call per page of 20 players.
+ */
+export async function fetchTeamPlayers(teamId: number, season: number): Promise<PlayerSeasonStats[]> {
+  const out: PlayerSeasonStats[] = [];
+  for (let page = 1; page <= 4; page++) {
+    let rows: RawPlayerRow[];
+    try {
+      ({ rows } = await call<RawPlayerRow>("/players", {
+        team: String(teamId),
+        season: String(season),
+        page: String(page),
+      }));
+    } catch (err) {
+      // The free plan stops at page 3 — keep what we have rather than lose the squad.
+      if (page > 1) break;
+      throw err;
+    }
+    for (const r of rows) {
+      const mine = r.statistics.filter((st) => st.team.id === teamId);
+      if (!mine.length) continue;
+      out.push({
+        id: r.player.id,
+        first: r.player.firstname ?? "",
+        last: r.player.lastname ?? "",
+        name: r.player.name,
+        position: mine[0].games.position ?? "",
+        apps: mine.reduce((a, st) => a + n(st.games.appearences), 0),
+        minutes: mine.reduce((a, st) => a + n(st.games.minutes), 0),
+        fouls: mine.reduce((a, st) => a + n(st.fouls.committed), 0),
+        tackles: mine.reduce((a, st) => a + n(st.tackles.total), 0),
+        shots: mine.reduce((a, st) => a + n(st.shots.total), 0),
+        shotsOn: mine.reduce((a, st) => a + n(st.shots.on), 0),
+        cards: mine.reduce((a, st) => a + n(st.cards.yellow) + n(st.cards.yellowred) + n(st.cards.red), 0),
+        saves: mine.reduce((a, st) => a + n(st.goals.saves), 0),
+      });
+    }
+    // A page holds 20 players; fewer means it was the last one.
+    if (rows.length < 20) break;
+  }
+  return out;
 }

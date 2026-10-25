@@ -184,5 +184,76 @@ export const playerNames = sqliteTable("player_names", {
   name: text("name").notNull(),
 });
 
+/** Season stats for every player of a team (API-Football), refreshed every few days. */
+export const teamPlayers = sqliteTable(
+  "team_players",
+  {
+    teamId: integer("team_id").notNull(),
+    season: integer("season").notNull(),
+    playersJson: text("players_json").notNull(),
+    fetchedAt: text("fetched_at").notNull(), // ISO
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.season] })],
+);
+
+/**
+ * The real track record: every value bet the feed found (above `TRACK_MIN_EV`)
+ * is stored once at the price it was first seen, followed until kick-off, then
+ * graded from the final score / player stats. Flat 1 unit per pick.
+ */
+export const trackPicks = sqliteTable("track_picks", {
+  id: text("id").primaryKey(), // the opportunity id
+  leagueId: text("league_id").notNull(),
+  league: text("league").notNull(),
+  homeTeam: text("home_team").notNull(),
+  awayTeam: text("away_team").notNull(),
+  startsAt: text("starts_at").notNull(), // ISO
+  market: text("market").notNull(),
+  marketLabel: text("market_label").notNull(),
+  selection: text("selection").notNull(),
+  bookmakerId: text("bookmaker_id").notNull(),
+  postedOdds: real("posted_odds").notNull(),
+  /** Last best price seen before kick-off — the benchmark for CLV. */
+  closingOdds: real("closing_odds").notNull(),
+  edgePercent: real("edge_percent").notNull(),
+  confidence: text("confidence").notNull(),
+  /** JSON: `{"type":"main","apiFixtureId":n,"spec":…}` or `{"type":"prop","spec":…}`. */
+  gradeJson: text("grade_json").notNull(),
+  postedAt: text("posted_at").notNull(), // ISO
+  /** pending | won | lost | void */
+  status: text("status").notNull(),
+  settledAt: text("settled_at"),
+});
+
+/**
+ * Real notifications, one row per message per user. `dedupeKey` (unique per
+ * user) makes every generator idempotent: the same event never notifies twice.
+ */
+export const notifications = sqliteTable("notifications", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  href: text("href"),
+  createdAt: text("created_at").notNull(), // ISO
+  read: integer("read").notNull().default(0),
+  dedupeKey: text("dedupe_key").notNull(),
+});
+
+/** "Already looked at" markers (value bets seen, price-move steps) — not shown to the user. */
+export const notifySeen = sqliteTable(
+  "notify_seen",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type BetRow = typeof bets.$inferSelect;

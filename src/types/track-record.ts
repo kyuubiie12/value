@@ -56,6 +56,8 @@ export interface TrackRecordStats {
 
   since: string; // ISO date
   updatedAt: string; // ISO
+  /** Picks saved but not yet graded (their match hasn't finished). */
+  pendingPicks?: number;
 }
 
 export interface TrackRecordPoint {
