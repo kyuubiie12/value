@@ -181,6 +181,31 @@ export async function findFinishedMatch(
   return null;
 }
 
+export interface LiveMatch {
+  eventId: number;
+  homeId: number;
+  awayId: number;
+  home: number;
+  away: number;
+}
+
+/** Every football match in play right now (one call), with the current score. */
+export async function liveMatches(): Promise<LiveMatch[]> {
+  const d = await call<{ events?: RawEvent[] }>("/api/v1/sport/football/events/live");
+  const out: LiveMatch[] = [];
+  for (const e of d.events ?? []) {
+    if (e.status?.type !== "inprogress") continue;
+    out.push({
+      eventId: e.id,
+      homeId: e.homeTeam.id,
+      awayId: e.awayTeam.id,
+      home: e.homeScore?.current ?? 0,
+      away: e.awayScore?.current ?? 0,
+    });
+  }
+  return out;
+}
+
 interface RawStatistics {
   statistics?: { period?: string; groups?: { statisticsItems?: { key?: string; homeValue?: number; awayValue?: number }[] }[] }[];
 }

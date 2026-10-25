@@ -1,10 +1,18 @@
 import "server-only";
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import type { MarketType, SettledPick, ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { trackPicks } from "@/lib/db/schema";
 import { findPlayer } from "@/lib/odds/player-model";
-import { findFinishedMatch, matchCorners, matchPlayers, sportApiConfigured, sportApiRemaining } from "@/lib/odds/sportapi";
+import {
+  findFinishedMatch,
+  liveMatches,
+  matchCorners,
+  matchPlayers,
+  sportApiConfigured,
+  sportApiRemaining,
+  type LiveMatch,
+} from "@/lib/odds/sportapi";
 import {
   gradeMain,
   gradeProp,
@@ -18,7 +26,7 @@ import {
 /** A value bet only enters the track record at or above this edge (%). */
 const TRACK_MIN_EDGE = 3;
 /** Grade this long after kick-off, when the data provider has the final numbers. */
-const SETTLE_AFTER_MS = 3 * 3_600_000;
+const SETTLE_AFTER_MS = 135 * 60_000;
 /** Give up on a pick we can't grade after this long (it counts as void). */
 const GIVE_UP_AFTER_MS = 4 * 24 * 3_600_000;
 /** Fixtures graded per run, and the API quota we always leave untouched. */
@@ -97,10 +105,89 @@ async function quotaLeft(): Promise<boolean> {
   return !(left !== null && left < KEEP_QUOTA);
 }
 
+/**
+ * A bet that only needs something to happen ("1+ skud", "over 2,5 mål") is won the
+ * moment it has — no need to wait for the final whistle. Only wins are settled here;
+ * a loss can't be known until the match is over.
+ */
+async function settleWhileLive(): Promise<number> {
+  const now = Date.now();
+  const rows = await db
+    .select()
+    .from(trackPicks)
+    .where(
+      and(
+        eq(trackPicks.status, "pending"),
+        lt(trackPicks.startsAt, new Date(now).toISOString()),
+        gt(trackPicks.startsAt, new Date(now - 4 * 3_600_000).toISOString()),
+      ),
+    )
+    .all();
+  if (!rows.length || !(await quotaLeft())) return 0;
+
+  let live: LiveMatch[];
+  try {
+    live = await liveMatches();
+  } catch (err) {
+    console.error("[track] could not list live matches:", err);
+    return 0;
+  }
+
+  const byMatch = new Map<number, { match: LiveMatch; picks: Row[] }>();
+  for (const p of rows) {
+    const g = JSON.parse(p.gradeJson) as GradeJson;
+    if (!g.teamIds) continue;
+    const match = live.find((m) => m.homeId === g.teamIds!.home && m.awayId === g.teamIds!.away);
+    if (!match) continue;
+    const entry = byMatch.get(match.eventId) ?? { match, picks: [] };
+    entry.picks.push(p);
+    byMatch.set(match.eventId, entry);
+  }
+
+  let won = 0;
+  for (const { match, picks } of byMatch.values()) {
+    if (!(await quotaLeft())) break;
+    try {
+      const specs = picks.map((p) => ({ p, g: JSON.parse(p.gradeJson) as GradeJson }));
+      const needPlayers = specs.some((x) => x.g.type === "prop");
+      const players = needPlayers ? await matchPlayers(match.eventId) : [];
+      const roster = players.map((p) => ({
+        id: p.id, first: "", last: "", name: p.name, position: "", apps: 0, minutes: 0,
+        fouls: 0, tackles: 0, shots: 0, shotsOn: 0, cards: 0, saves: 0,
+      }));
+      const ids: string[] = [];
+      for (const { p, g } of specs) {
+        if (g.type === "prop") {
+          const hit = findPlayer(roster, g.spec.player);
+          const stat = hit ? players.find((x) => x.id === hit.id)?.stat : undefined;
+          if (stat && gradeProp(g.spec, stat) === "won") ids.push(p.id);
+        } else if (
+          (g.spec.kind === "goals" || g.spec.kind === "home-goals" || g.spec.kind === "away-goals") &&
+          g.spec.side === "over" &&
+          gradeMain(g.spec, { home: match.home, away: match.away, corners: null }) === "won"
+        ) {
+          ids.push(p.id);
+        }
+      }
+      await setStatus(ids, "won");
+      won += ids.length;
+    } catch (err) {
+      console.error("[track] live check failed for a match:", err);
+    }
+  }
+  return won;
+}
+
 /** Grade every pending pick whose match is over (SportAPI). Fails soft; unresolved picks stay pending. */
 export async function settlePending(): Promise<{ settled: number }> {
   if (!sportApiConfigured()) return { settled: 0 };
   await dbReady;
+  const early = await settleWhileLive();
+  if (early) return { settled: early + (await settleFinished()).settled };
+  return settleFinished();
+}
+
+async function settleFinished(): Promise<{ settled: number }> {
   const now = Date.now();
   const due = await db
     .select()
