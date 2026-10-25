@@ -1,7 +1,7 @@
 /* Mentor service worker — keeps the app installable, shows an offline
    page when a navigation fails, and handles Web Push. It deliberately does NOT
    cache app pages or data: the feed must always be live. */
-const CACHE = "vb-shell-v1";
+const CACHE = "vb-shell-v2";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -42,8 +42,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/brand/icon-192.png",
-      badge: "/brand/icon-96.png",
+      icon: "/brand/v2/icon-192.png",
+      badge: "/brand/v2/icon-96.png",
       tag: data.tag,
       data: { url: data.url || "/value-bets" },
     }),

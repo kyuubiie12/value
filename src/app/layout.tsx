@@ -73,8 +73,8 @@ export const metadata: Metadata = {
   applicationName: "Mentor",
   appleWebApp: { capable: true, title: "Mentor", statusBarStyle: "black-translucent" },
   icons: {
-    icon: [{ url: "/brand/icon-192.png?v=2", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/brand/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }],
+    icon: [{ url: "/brand/v2/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/brand/v2/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
