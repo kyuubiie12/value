@@ -9,7 +9,7 @@ import { getLeague, DEFAULT_SETTINGS } from "@/lib/mock-data";
 import { suggestedStake } from "@/lib/betting-math";
 import { trackOpportunityAction, untrackOpportunityAction } from "@/lib/actions";
 import {
-  formatCountdown,
+  formatCountdown, formatKickoff,
   formatCurrency,
   formatOdds,
   formatPercent,
@@ -151,10 +151,11 @@ export function ValueBetCard({
           <span className="text-subtle"> · {o.marketLabel}</span>
         </p>
         <span
-          className="tabular shrink-0 text-[11px] text-subtle"
+          className="tabular flex shrink-0 flex-col items-end text-[11px] leading-tight text-subtle"
           suppressHydrationWarning
         >
-          {formatCountdown(o.startsAt, now)}
+          <span className="font-medium text-muted">{formatKickoff(o.startsAt)}</span>
+          <span>{formatCountdown(o.startsAt, now)}</span>
         </span>
       </div>
 
