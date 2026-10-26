@@ -12,7 +12,8 @@ import { Metric } from "@/components/profile/parts";
 import { BarList, SignupChart } from "@/components/admin/admin-bits";
 import { UsersTable } from "@/components/admin/users-table";
 import { getAdminOverview } from "@/lib/admin/queries";
-import { bookmakerService, leagueService } from "@/lib/services";
+import { bookmakerService, leagueService, valueService } from "@/lib/services";
+import { MARKET_LABELS } from "@/types";
 import { formatCurrency, formatPercent } from "@/lib/format";
 
 export const metadata: Metadata = {
@@ -20,12 +21,29 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+const hasStarted = (iso: string) => new Date(iso).getTime() <= Date.now();
+
 export default async function AdminPage() {
-  const [o, bookmakers, leagues] = await Promise.all([
+  const [o, bookmakers, leagues, opps] = await Promise.all([
     getAdminOverview(),
     bookmakerService.list(),
     leagueService.list(),
+    valueService.listOpportunities(),
   ]);
+  // What the feed holds right now, per kind of bet — to see new markets filling in.
+  const byMarket = new Map<string, number>();
+  for (const x of opps) byMarket.set(x.market, (byMarket.get(x.market) ?? 0) + 1);
+  const marketRows = [...byMarket]
+    .map(([m, count]) => ({ label: MARKET_LABELS[m as keyof typeof MARKET_LABELS] ?? m, count }))
+    .sort((a, b) => b.count - a.count);
+  const signal = {
+    starters: opps.filter((x) => x.lineup).length,
+    referee: opps.filter((x) => x.referee).length,
+    sharp: opps.filter((x) => x.sharpMove).length,
+    moderate: opps.filter((x) => x.proofLevel === "moderate").length,
+    high: opps.filter((x) => x.bestOdds > 5.5).length,
+    live: opps.filter((x) => hasStarted(x.startsAt)).length,
+  };
   const bookName = new Map(bookmakers.map((b) => [b.id, b.name]));
   const leagueName = new Map(leagues.map((l) => [l.id, l.name]));
 
@@ -67,6 +85,26 @@ export default async function AdminPage() {
           value={o.plans.map((p) => `${p.count} ${p.key}`).join(" · ") || "—"}
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Spil i feedet lige nu</CardTitle>
+          <CardDescription>
+            {opps.length} spil i alt, fordelt på slags. Mål, assists og tacklinger fylder op, efterhånden som kampene prissættes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <BarList rows={marketRows} empty="Ingen spil i feedet lige nu" />
+          <div className="grid grid-cols-2 gap-3 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-6">
+            <Metric label="Med opstilling" value={signal.starters} />
+            <Metric label="Med dommer" value={signal.referee} />
+            <Metric label="Skarpt træk" value={signal.sharp} />
+            <Metric label="Moderat bevis" value={signal.moderate} />
+            <Metric label="Odds over 5,5" value={signal.high} />
+            <Metric label="I gang nu" value={signal.live} />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
