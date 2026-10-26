@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { trackRecordService } from "@/lib/services";
 import { formatDate, formatPercent } from "@/lib/format";
 import { BrandMark, MentorM } from "@/components/shared/brand-mark";
+import { LEGAL_LINKS } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,14 @@ export default async function AuthLayout({
           Analyse- og trackingværktøj. Vi formidler ikke spil og placerer ingen
           væddemål. Spil ansvarligt · 18+
           {stats.picks > 0 && <> · Track record siden {formatDate(stats.since)}</>}
+          {" · "}
+          <a href={LEGAL_LINKS.terms} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+            Vilkår
+          </a>
+          {" · "}
+          <a href={LEGAL_LINKS.privacy} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+            Privatliv
+          </a>
         </p>
       </aside>
 
@@ -71,6 +80,14 @@ export default async function AuthLayout({
 
         <p className="mt-10 max-w-[20rem] text-center text-xs leading-relaxed text-subtle lg:hidden">
           Vi formidler ikke spil og placerer ingen væddemål. Spil ansvarligt · 18+
+          {" · "}
+          <a href={LEGAL_LINKS.terms} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+            Vilkår
+          </a>
+          {" · "}
+          <a href={LEGAL_LINKS.privacy} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+            Privatliv
+          </a>
         </p>
       </main>
     </div>

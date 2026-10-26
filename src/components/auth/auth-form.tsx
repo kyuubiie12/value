@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LEGAL_LINKS } from "@/lib/site";
 import { signupAction, loginAction, type AuthState } from "@/lib/auth/actions";
 
 type Mode = "login" | "signup";
@@ -53,6 +54,30 @@ export function AuthForm({ mode }: { mode: Mode }) {
           className="rounded-[var(--radius-sm)] border border-negative/30 bg-negative/10 px-3 py-2 text-[12px] text-negative"
         >
           {state.error}
+        </p>
+      )}
+
+      {mode === "signup" && (
+        <p className="text-[11.5px] leading-relaxed text-subtle">
+          Når du opretter en konto, bekræfter du, at du er mindst 18 år, og accepterer{" "}
+          <a
+            href={LEGAL_LINKS.terms}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted underline underline-offset-2 hover:text-fg"
+          >
+            vilkårene
+          </a>{" "}
+          og{" "}
+          <a
+            href={LEGAL_LINKS.privacy}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted underline underline-offset-2 hover:text-fg"
+          >
+            privatlivspolitikken
+          </a>
+          .
         </p>
       )}
 

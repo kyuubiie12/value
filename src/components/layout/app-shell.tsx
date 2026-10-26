@@ -4,6 +4,7 @@ import { TopNav } from "./top-nav";
 import { ThemeSync } from "./theme-sync";
 import { CommandPalette } from "./command-palette";
 import { Spotlight } from "./spotlight";
+import { LEGAL_LINKS } from "@/lib/site";
 
 export function AppShell({
   stats,
@@ -48,6 +49,14 @@ export function AppShell({
           <p className="text-[11px] leading-relaxed text-subtle">
             Mentor er et analyse- og trackingværktøj. Vi formidler ikke spil
             og placerer ingen væddemål. Spil ansvarligt · 18+
+            {" · "}
+            <a href={LEGAL_LINKS.terms} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+              Vilkår
+            </a>
+            {" · "}
+            <a href={LEGAL_LINKS.privacy} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+              Privatliv
+            </a>
           </p>
         </div>
       </footer>
