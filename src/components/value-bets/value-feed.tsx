@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SearchX } from "lucide-react";
 import type {
   Bookmaker,
@@ -11,6 +12,7 @@ import type {
   ValueOpportunity,
 } from "@/types";
 import { filterOpportunities } from "@/lib/filtering";
+import { updateSettingsAction } from "@/lib/actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LeagueBadge } from "@/components/shared/league-badge";
 import { BetFormModal } from "@/components/portfolio/bet-form-modal";
@@ -58,6 +60,8 @@ export function ValueFeed({
   /** The user's saved odds range (0 = no limit on that side). */
   oddsRange?: OddsRange;
 }) {
+  const router = useRouter();
+  const [resetKey, setResetKey] = React.useState(0);
   const [filters, setFilters] = React.useState<ValueFilters>({ sort: "score-desc" });
   // The user's minimum value: moves the list instantly, saved on release.
   const [minEdge, setMinEdge] = React.useState(savedMinEdge);
@@ -71,6 +75,12 @@ export function ValueFeed({
     }),
     [minEdge, oddsRange],
   );
+  const resetLimits = () => {
+    setMinEdge(0);
+    setOddsRange({ min: 0, max: 0 });
+    setResetKey((k) => k + 1);
+    void updateSettingsAction({ minEdge: 0, minOdds: 0, maxOdds: 0 }).then(() => router.refresh());
+  };
   const [view, setView] = React.useState<ViewMode>("cards");
   const [detailTarget, setDetailTarget] = React.useState<ValueOpportunity | null>(null);
   const [logTarget, setLogTarget] = React.useState<ValueOpportunity | null>(null);
@@ -150,9 +160,9 @@ export function ValueFeed({
         />
       )}
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <MinValueSlider value={minEdge} onChange={setMinEdge} />
-        <OddsRangeFilter value={oddsRange} onChange={setOddsRange} />
+      <div className="grid items-stretch gap-3 lg:grid-cols-2">
+        <MinValueSlider key={`min-${resetKey}`} value={minEdge} onChange={setMinEdge} />
+        <OddsRangeFilter key={`odds-${resetKey}`} value={oddsRange} onChange={setOddsRange} />
       </div>
 
       <ValueFilterBar
@@ -162,6 +172,8 @@ export function ValueFeed({
         leagues={feedLeagues}
         markets={markets}
         resultCount={filtered.length}
+        limitsActive={minEdge > 0 || oddsRange.min > 0 || oddsRange.max > 0}
+        onResetLimits={resetLimits}
         view={view}
         onViewChange={setView}
       />

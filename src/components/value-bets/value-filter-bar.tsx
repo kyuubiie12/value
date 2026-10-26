@@ -46,6 +46,8 @@ export function ValueFilterBar({
   leagues,
   markets,
   resultCount,
+  limitsActive = false,
+  onResetLimits,
   view,
   onViewChange,
 }: {
@@ -55,6 +57,9 @@ export function ValueFilterBar({
   leagues: League[];
   markets: MarketType[];
   resultCount: number;
+  /** Minimum value / odds range are set — "Ryd" should clear those too. */
+  limitsActive?: boolean;
+  onResetLimits?: () => void;
   view: FeedView;
   onViewChange: (v: FeedView) => void;
 }) {
@@ -223,10 +228,13 @@ export function ValueFilterBar({
             {resultCount} {resultCount === 1 ? "value bet" : "value bets"} · scanner
             kører
           </span>
-          {activeCount > 0 && (
+          {(activeCount > 0 || limitsActive) && (
             <button
               type="button"
-              onClick={() => onChange({ sort: filters.sort })}
+              onClick={() => {
+                onChange({ sort: filters.sort });
+                onResetLimits?.();
+              }}
               className="inline-flex cursor-pointer items-center gap-1 font-medium text-muted transition-colors hover:text-fg"
             >
               <X className="size-3" />

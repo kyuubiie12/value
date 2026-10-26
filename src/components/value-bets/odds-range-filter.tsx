@@ -29,8 +29,8 @@ const parse = (s: string) => {
 };
 
 /**
- * "Kun odds mellem X og Y" — filters the list on the best price, instantly, and
- * remembers the choice. Presets for the common ranges, free fields for the rest.
+ * "Odds" — filters the list on the best price, instantly, and remembers the choice.
+ * Presets for the common ranges (and high odds), free fields for the rest.
  */
 export function OddsRangeFilter({
   value,
@@ -63,60 +63,81 @@ export function OddsRangeFilter({
   };
 
   const invalid = value.min > 0 && value.max > 0 && value.min > value.max;
+  const summary =
+    value.min === 0 && value.max === 0
+      ? "Alle odds"
+      : value.max === 0
+        ? `Fra ${fmt(value.min)}`
+        : value.min === 0
+          ? `Op til ${fmt(value.max)}`
+          : `${fmt(value.min)} – ${fmt(value.max)}`;
+
+  const field =
+    "tabular h-8 w-[72px] rounded-full border border-line/70 bg-surface-2 px-3 text-center text-[12.5px] text-fg outline-none placeholder:text-subtle focus-visible:border-primary";
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-card border border-line/60 bg-surface px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <span className="shrink-0 text-[12.5px] font-medium text-fg">Kun odds mellem</span>
-        <div className="flex items-center gap-2">
-          <input
-            inputMode="decimal"
-            aria-label="Laveste odds"
-            placeholder="fra"
-            value={minText}
-            onChange={(e) => {
-              setMinText(e.target.value);
-              onChange({ min: parse(e.target.value), max: value.max });
-            }}
-            onBlur={() => save(value)}
-            className="tabular h-8 w-16 rounded-full border border-line/70 bg-surface-2 px-3 text-center text-[12.5px] text-fg outline-none focus-visible:border-primary"
-          />
-          <span className="text-subtle">og</span>
-          <input
-            inputMode="decimal"
-            aria-label="Højeste odds"
-            placeholder="til"
-            value={maxText}
-            onChange={(e) => {
-              setMaxText(e.target.value);
-              onChange({ min: value.min, max: parse(e.target.value) });
-            }}
-            onBlur={() => save(value)}
-            className="tabular h-8 w-16 rounded-full border border-line/70 bg-surface-2 px-3 text-center text-[12.5px] text-fg outline-none focus-visible:border-primary"
-          />
-        </div>
-        <span className="text-[11px] text-subtle" aria-live="polite">
-          {invalid ? "Laveste odds skal være under højeste" : saving ? "Gemmer…" : "Gemmes som dit standardvalg"}
+    <div className="flex h-full flex-col gap-4 rounded-card border border-line/60 bg-surface p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[13px] font-semibold text-fg">Odds</span>
+        <span className="tabular rounded-full bg-primary/10 px-2.5 py-0.5 text-[12px] font-semibold text-primary-strong">
+          {summary}
         </span>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {PRESETS.map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            onClick={() => apply(p.range)}
-            aria-pressed={same(value, p.range)}
-            className={cn(
-              "cursor-pointer rounded-full border px-3 py-1 text-[12px] font-medium transition-colors",
-              same(value, p.range)
-                ? "border-primary/50 bg-primary/12 text-primary-strong"
-                : "border-line/70 bg-surface-2 text-muted hover:border-line-strong hover:text-fg",
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
+
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Hurtigvalg for odds">
+        {PRESETS.map((p) => {
+          const on = same(value, p.range);
+          return (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => apply(p.range)}
+              aria-pressed={on}
+              className={cn(
+                "h-8 cursor-pointer rounded-full border px-3 text-[12px] font-medium transition-colors",
+                on
+                  ? "border-primary/50 bg-primary/12 text-primary-strong"
+                  : "border-line/70 bg-surface-2 text-muted hover:border-line-strong hover:text-fg",
+              )}
+            >
+              {p.label}
+            </button>
+          );
+        })}
       </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-subtle">
+        <span>Eller skriv selv:</span>
+        <input
+          inputMode="decimal"
+          aria-label="Laveste odds"
+          placeholder="fra"
+          value={minText}
+          onChange={(e) => {
+            setMinText(e.target.value);
+            onChange({ min: parse(e.target.value), max: value.max });
+          }}
+          onBlur={() => save(value)}
+          className={field}
+        />
+        <span>til</span>
+        <input
+          inputMode="decimal"
+          aria-label="Højeste odds"
+          placeholder="til"
+          value={maxText}
+          onChange={(e) => {
+            setMaxText(e.target.value);
+            onChange({ min: value.min, max: parse(e.target.value) });
+          }}
+          onBlur={() => save(value)}
+          className={field}
+        />
+      </div>
+
+      <p className="mt-auto text-[11px] text-subtle" aria-live="polite">
+        {invalid ? "Laveste odds skal være under højeste" : saving ? "Gemmer…" : "Gemmes som dit standardvalg"}
+      </p>
     </div>
   );
 }
