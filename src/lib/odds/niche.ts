@@ -21,7 +21,7 @@ export const NICHE_BOOKS: Record<string, string> = {
   "888sport.dk": "888sport",
 };
 
-export type NicheCategory = "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards";
+export type NicheCategory = "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards" | "goals" | "assists";
 
 const CATEGORY_MARKET: Record<NicheCategory, MarketType> = {
   shots: "shots",
@@ -30,6 +30,8 @@ const CATEGORY_MARKET: Record<NicheCategory, MarketType> = {
   fouls: "fouls",
   saves: "saves",
   cards: "cards",
+  goals: "goals",
+  assists: "assists",
 };
 
 const CATEGORY_LABEL: Record<NicheCategory, string> = {
@@ -39,6 +41,8 @@ const CATEGORY_LABEL: Record<NicheCategory, string> = {
   fouls: "Spiller-fouls",
   saves: "Målmandsredninger",
   cards: "Spiller-kort",
+  goals: "Spiller-mål",
+  assists: "Spiller-assists",
 };
 
 const CATEGORY_NOUN: Record<NicheCategory, string> = {
@@ -48,6 +52,8 @@ const CATEGORY_NOUN: Record<NicheCategory, string> = {
   fouls: "fouls",
   saves: "redninger",
   cards: "kort",
+  goals: "mål",
+  assists: "assists",
 };
 
 const BOOK_NAME: Record<string, string> = {
@@ -79,6 +85,9 @@ export function categoryOf(name: string, playerProp: boolean): NicheCategory | n
   if (/save/i.test(name)) return "saves";
   if (/carded|booked|card/i.test(name)) return "cards";
   if (/foul/i.test(name)) return "fouls";
+  if (/first goal|last goal/i.test(name)) return null; // only "anytime": it is the one a record can speak to
+  if (/assist/i.test(name)) return "assists";
+  if (/\bgoals?\b|goal\s*scorer/i.test(name)) return "goals";
   return null;
 }
 

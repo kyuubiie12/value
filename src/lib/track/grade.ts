@@ -17,7 +17,7 @@ export type MainSpec =
 
 export interface PropSpec {
   player: string;
-  stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards";
+  stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards" | "goals" | "assists";
   line: number;
 }
 
@@ -96,10 +96,13 @@ export interface PlayerMatchStat {
   fouls: number;
   saves: number;
   cards: number;
+  /** Goals (own goals excluded) and assists — absent in matches stored before we tracked them. */
+  goals?: number;
+  assists?: number;
 }
 
 const statOf = (s: PlayerMatchStat, stat: PropSpec["stat"]) =>
-  ({ shots: s.shots, "shots-on-target": s.shotsOn, tackles: s.tackles, fouls: s.fouls, saves: s.saves, cards: s.cards })[stat];
+  ({ shots: s.shots, "shots-on-target": s.shotsOn, tackles: s.tackles, fouls: s.fouls, saves: s.saves, cards: s.cards, goals: s.goals ?? 0, assists: s.assists ?? 0 })[stat];
 
 /** A prop is void when the player never got on the pitch, otherwise count vs. line. */
 export function gradeProp(spec: PropSpec, s: PlayerMatchStat): PickOutcome {

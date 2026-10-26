@@ -89,6 +89,25 @@ export async function fixtureHistory(
         let players: StoredPlayer[];
         if (row) {
           players = JSON.parse(row.playersJson) as StoredPlayer[];
+          // Matches stored before we tracked goals and assists: read them once more (if the allowance allows).
+          if (players.length && players[0].stat.goals === undefined) {
+            const left = sportApiRemaining();
+            if (left === null || left >= SPORTAPI_RESERVE) {
+              try {
+                players = await sportApiMatchPlayers(m.id);
+                await db
+                  .insert(matchPlayers)
+                  .values({ fixtureId: cacheId, playersJson: JSON.stringify(players), fetchedAt: new Date().toISOString() })
+                  .onConflictDoUpdate({
+                    target: matchPlayers.fixtureId,
+                    set: { playersJson: JSON.stringify(players), fetchedAt: new Date().toISOString() },
+                  });
+              } catch (err) {
+                if (err instanceof SportApiError && err.blocked) throw err;
+                // anything else: keep the stored line, it still serves the other props
+              }
+            }
+          }
         } else {
           const left = sportApiRemaining();
           if (left !== null && left < SPORTAPI_RESERVE) throw new SportApiError("SportAPI allowance nearly spent", true);

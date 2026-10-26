@@ -143,6 +143,8 @@ export async function matchPlayers(eventId: number): Promise<MatchPlayer[]> {
         fouls: n(s.fouls),
         saves: n(s.saves),
         cards: cards.get(p.player.id) ?? 0,
+        goals: n(s.goals),
+        assists: n(s.goalAssist),
       },
     });
   }

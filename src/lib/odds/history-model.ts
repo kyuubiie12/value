@@ -42,8 +42,9 @@ export function wilsonLower(hits: number, n: number, z = Z): number {
   return Math.max(0, (centre - margin) / (1 + z2 / n));
 }
 
-export const countOf = (s: PlayerMatchStat, cat: NicheCategory): number =>
-  ({ shots: s.shots, "shots-on-target": s.shotsOn, tackles: s.tackles, fouls: s.fouls, saves: s.saves, cards: s.cards })[cat];
+/** The count in one match — undefined for goals/assists in matches stored before we tracked them. */
+export const countOf = (s: PlayerMatchStat, cat: NicheCategory): number | undefined =>
+  ({ shots: s.shots, "shots-on-target": s.shotsOn, tackles: s.tackles, fouls: s.fouls, saves: s.saves, cards: s.cards, goals: s.goals, assists: s.assists })[cat];
 
 /**
  * His record for one prop: counts per match, hit rate, the pessimistic chance,
@@ -60,10 +61,12 @@ export function historyContext(
 ): PlayerStatContext | null {
   const line = lineFromLabel(label);
   // Only matches he actually played in (a bench-warmer's zeros would flatter nothing).
-  const played = appearances.filter((a) => (a.stat.minutes ?? 0) > 0).slice(0, HISTORY_MATCHES);
+  const played = appearances
+    .filter((a) => (a.stat.minutes ?? 0) > 0 && countOf(a.stat, category) !== undefined)
+    .slice(0, HISTORY_MATCHES);
   if (line === null || played.length < MIN_MATCHES) return null;
 
-  const counts = played.map((a) => countOf(a.stat, category));
+  const counts = played.map((a) => countOf(a.stat, category) as number);
   const hits = counts.filter((c) => c >= line).length;
   const n = counts.length;
   const mean = counts.reduce((s, c) => s + c, 0) / n;

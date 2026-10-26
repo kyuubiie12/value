@@ -35,6 +35,8 @@ export const METRIC: Record<NicheCategory, { label: string; get: (p: PlayerSeaso
   "shots-on-target": { label: "skud på mål", get: (p) => p.shotsOn },
   saves: { label: "redninger", get: (p) => p.saves },
   cards: { label: "kort", get: (p) => p.cards },
+  goals: { label: "mål", get: () => 0 },
+  assists: { label: "assists", get: () => 0 },
 };
 
 /** P(X ≥ k) for X ~ Poisson(λ). */

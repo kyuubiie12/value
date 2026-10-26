@@ -14,6 +14,7 @@ import type { StatMarkets } from "./stat-markets";
  */
 
 const TTL_MS = 30 * 24 * 3_600_000;
+const DICT_VERSION = "3"; // 3: goals + assists
 
 export interface MarketDicts {
   niche: NicheMarkets;
@@ -41,7 +42,9 @@ export async function loadMarketDicts(): Promise<MarketDicts> {
   const niche = await getMeta("op_dict_niche");
   const main = await getMeta("op_dict_main");
   const stat = await getMeta("op_dict_stat");
-  if (niche && main && stat && Date.now() - at < TTL_MS) {
+  // Bump when the way markets are classified changes (the catalogue itself is cached for a month).
+  const version = await getMeta("op_dict_v");
+  if (niche && main && stat && version === DICT_VERSION && Date.now() - at < TTL_MS) {
     const dicts = {
       niche: JSON.parse(niche) as NicheMarkets,
       main: JSON.parse(main) as MainMarkets,
@@ -54,6 +57,7 @@ export async function loadMarketDicts(): Promise<MarketDicts> {
   await setMeta("op_dict_niche", JSON.stringify(fresh.niche));
   await setMeta("op_dict_main", JSON.stringify(fresh.main));
   await setMeta("op_dict_stat", JSON.stringify(fresh.stat));
+  await setMeta("op_dict_v", DICT_VERSION);
   await setMeta("op_dicts_at", String(Date.now()));
   memo = { at: Date.now(), dicts: { niche: fresh.niche, main: fresh.main, stat: fresh.stat } };
   return memo.dicts;

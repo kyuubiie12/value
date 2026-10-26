@@ -111,7 +111,7 @@ export interface ValueOpportunity {
   /** Pinnacle has moved towards this outcome since we first saw the match, and the bookmaker has not followed. */
   sharpMove?: { fromOdds: number; toOdds: number };
   /** Player props only: what to look up after the match to grade the pick. */
-  propSpec?: { player: string; stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards"; line: number; /** SportAPI player id, for the line-up check. */ playerId?: number };
+  propSpec?: { player: string; stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards" | "goals" | "assists"; line: number; /** SportAPI player id, for the line-up check. */ playerId?: number };
 
   /** Every price we saw for this selection. */
   quotes: OddsQuote[];
