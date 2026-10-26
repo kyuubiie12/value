@@ -25,6 +25,7 @@ export function restrictOpportunityToBooks(
   return {
     ...o,
     quotes: allowed,
+    ...(o.unconfirmed ? { unconfirmed: o.unconfirmed.filter((q) => bookmakerIds.includes(q.bookmakerId)) } : {}),
     booksCount: allowed.length,
     bestOdds: best.price,
     bestBookmakerId: best.bookmakerId,

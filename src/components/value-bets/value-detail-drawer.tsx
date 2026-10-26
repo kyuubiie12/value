@@ -34,6 +34,7 @@ import {
   formatNumber,
   formatOdds,
   formatPercent,
+  formatRelativeTime,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -418,6 +419,7 @@ export function ValueDetailDrawer({
               fairOdds={o.fairOdds}
               fairBasis={o.fairBasis}
             />
+            {o.unconfirmed && o.unconfirmed.length > 0 && <UnconfirmedPrices opportunity={o} />}
           </div>
 
         </div>
@@ -611,6 +613,31 @@ export function LineDataPanel({
           )}
         </p>
       </div>
+    </div>
+  );
+}
+
+/** Prices that have not been confirmed in the last day: listed apart, never part of the value. */
+function UnconfirmedPrices({ opportunity: o }: { opportunity: ValueOpportunity }) {
+  const rows = [...(o.unconfirmed ?? [])].sort((a, b) => b.price - a.price);
+  const better = rows.filter((q) => q.price > o.bestOdds);
+  return (
+    <div className="mt-3 rounded-card border border-dashed border-line px-3.5 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">Ikke bekræftet for nylig</p>
+      <ul className="mt-2 space-y-1.5">
+        {rows.map((q) => (
+          <li key={q.bookmakerId} className="flex items-center gap-2.5 text-[12.5px] text-muted">
+            <BookmakerLogo bookmakerId={q.bookmakerId} size="sm" />
+            <span className="tabular font-semibold text-fg">{formatOdds(q.price)}</span>
+            <span className="text-subtle" suppressHydrationWarning>sidst ændret {formatRelativeTime(q.updatedAt)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-subtle">
+        {better.length
+          ? `${getBookmaker(better[0].bookmakerId)?.name ?? better[0].bookmakerId} kan have højere odds (${formatOdds(better[0].price)}), men prisen er ikke set bekræftet i over et døgn. Tjek den hos bookmakeren, før du spiller — vi regner ikke med den.`
+          : "Disse priser er ikke set bekræftet i over et døgn og kan være fjernet. Vi regner ikke med dem."}
+      </p>
     </div>
   );
 }

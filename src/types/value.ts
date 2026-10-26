@@ -108,6 +108,8 @@ export interface ValueOpportunity {
   lineup?: "confirmed" | "expected";
   /** Whole-match cards lines: the referee's own record, when it agrees with the line. */
   referee?: { name: string; perGame: number; games: number };
+  /** Prices not confirmed in the last day (a bookmaker may have removed the line) — shown, but never counted. */
+  unconfirmed?: OddsQuote[];
   /** Pinnacle has moved towards this outcome since we first saw the match, and the bookmaker has not followed. */
   sharpMove?: { fromOdds: number; toOdds: number };
   /** Player props only: what to look up after the match to grade the pick. */

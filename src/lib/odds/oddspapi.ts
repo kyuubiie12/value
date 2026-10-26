@@ -154,20 +154,23 @@ export function playablePrices(
   odds: RawNicheOdds,
   books: Record<string, BookStatus> = {},
   now = Date.now(),
-): RawNicheOdds {
-  const out: RawNicheOdds = {};
+): { fresh: RawNicheOdds; aged: RawNicheOdds } {
+  const fresh: RawNicheOdds = {};
+  const aged: RawNicheOdds = {};
   for (const [slug, outcomes] of Object.entries(odds)) {
     const b = books[slug];
     if (b && (b.hasOdds === false || b.staleOdds || b.suspended)) continue;
-    const kept: Record<string, RawNicheOutcome> = {};
+    const keptFresh: Record<string, RawNicheOutcome> = {};
+    const keptAged: Record<string, RawNicheOutcome> = {};
     for (const [key, o] of Object.entries(outcomes)) {
       if (o.active === false || o.marketActive === false) continue;
-      if (typeof o.changedAt === "number" && now - o.changedAt > MAX_PRICE_AGE_MS) continue;
-      kept[key] = o;
+      if (typeof o.changedAt === "number" && now - o.changedAt > MAX_PRICE_AGE_MS) keptAged[key] = o;
+      else keptFresh[key] = o;
     }
-    if (Object.keys(kept).length) out[slug] = kept;
+    if (Object.keys(keptFresh).length) fresh[slug] = keptFresh;
+    if (Object.keys(keptAged).length) aged[slug] = keptAged;
   }
-  return out;
+  return { fresh, aged };
 }
 
 /** One fixture's prices from every book we compare (props and main markets in one call). */
@@ -181,8 +184,11 @@ export async function fetchFixtureNicheOdds(fixtureId: string) {
     fixtureId,
     bookmakers: slugs.join(","),
   });
+  const { fresh, aged } = playablePrices(data.odds ?? {}, data.bookmakers);
   return {
-    odds: playablePrices(data.odds ?? {}, data.bookmakers),
+    odds: fresh,
+    /** Older than a day: may no longer be on offer, so only ever shown with a warning. */
+    aged,
     eventId: data.externalProviders?.sofascoreId ?? null,
     remaining,
   };

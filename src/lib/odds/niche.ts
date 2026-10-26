@@ -145,6 +145,8 @@ interface Group {
   /** The count that wins the bet: 2 means "2+". */
   line: number;
   prices: Map<string, number>;
+  /** When each book's price last changed (ms). */
+  changed: Map<string, number>;
 }
 
 /** "2+" → 2, "Yes" → 1, and "Over" on a 1.5 line → 2; anything else can't be compared. */
@@ -175,11 +177,14 @@ export function listPropCandidates(
       const key = `${m.c}|${o.playerId}|${line}`;
       let g = groups.get(key);
       if (!g) {
-        g = { category: m.c, playerId: o.playerId, line, prices: new Map() };
+        g = { category: m.c, playerId: o.playerId, line, prices: new Map(), changed: new Map() };
         groups.set(key, g);
       }
       // The same book can quote a line twice (ladder + over/under): keep its better price.
-      g.prices.set(slug, Math.max(g.prices.get(slug) ?? 0, o.price));
+      if (o.price > (g.prices.get(slug) ?? 0)) {
+        g.prices.set(slug, o.price);
+        if (o.changedAt) g.changed.set(slug, o.changedAt);
+      }
     }
   }
 
@@ -204,7 +209,11 @@ export function listPropCandidates(
       noun: CATEGORY_NOUN[g.category],
       bestOdds: best,
       bestBookmakerId: NICHE_BOOKS[bestSlug],
-      quotes: [...g.prices].map(([slug, price]) => ({ bookmakerId: NICHE_BOOKS[slug], price, updatedAt: at })),
+      quotes: [...g.prices].map(([slug, price]) => ({
+        bookmakerId: NICHE_BOOKS[slug],
+        price,
+        updatedAt: g.changed.has(slug) ? new Date(g.changed.get(slug)!).toISOString() : at,
+      })),
       at,
     });
   }

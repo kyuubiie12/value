@@ -75,7 +75,7 @@ export function listStatCandidates(
   markets: StatMarkets,
   at: string,
 ): StatCandidate[] {
-  const groups = new Map<string, { spec: StatSpec; prices: Map<string, number> }>();
+  const groups = new Map<string, { spec: StatSpec; prices: Map<string, number>; changed: Map<string, number> }>();
   for (const [slug, outcomes] of Object.entries(odds)) {
     if (!NICHE_BOOKS[slug]) continue;
     for (const o of Object.values(outcomes)) {
@@ -88,10 +88,13 @@ export function listStatCandidates(
       const key = `${m.k}|${m.s}|${m.p}|${m.h}|${side}`;
       let g = groups.get(key);
       if (!g) {
-        g = { spec: { category: m.k, scope: m.s, period: m.p, side, line: m.h }, prices: new Map() };
+        g = { spec: { category: m.k, scope: m.s, period: m.p, side, line: m.h }, prices: new Map(), changed: new Map() };
         groups.set(key, g);
       }
-      g.prices.set(slug, Math.max(g.prices.get(slug) ?? 0, o.price));
+      if (o.price > (g.prices.get(slug) ?? 0)) {
+        g.prices.set(slug, o.price);
+        if (o.changedAt) g.changed.set(slug, o.changedAt);
+      }
     }
   }
 
@@ -112,7 +115,11 @@ export function listStatCandidates(
       spec: g.spec,
       bestOdds: best,
       bestBookmakerId: NICHE_BOOKS[bestSlug],
-      quotes: [...g.prices].map(([slug, price]) => ({ bookmakerId: NICHE_BOOKS[slug], price, updatedAt: at })),
+      quotes: [...g.prices].map(([slug, price]) => ({
+        bookmakerId: NICHE_BOOKS[slug],
+        price,
+        updatedAt: g.changed.has(slug) ? new Date(g.changed.get(slug)!).toISOString() : at,
+      })),
       at,
     });
   }

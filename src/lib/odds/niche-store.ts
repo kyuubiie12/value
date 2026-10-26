@@ -1,6 +1,6 @@
 import "server-only";
 import { and, eq, gt, inArray, like, lt, sql } from "drizzle-orm";
-import type { ValueOpportunity } from "@/types";
+import type { OddsQuote, ValueOpportunity } from "@/types";
 import { db, dbReady } from "@/lib/db";
 import { feedMeta, nicheFixtures, playerNames, trackPicks } from "@/lib/db/schema";
 import { horizonMs, LIVE_WINDOW_MS, MAX_HORIZON_MS } from "./config";
@@ -177,10 +177,18 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
 
     for (const f of (await pickDue(now)).slice(0, MAX_PER_RUN)) {
       if (Date.now() - now > RUN_BUDGET_MS) break;
-      const { odds, eventId, remaining } = await fetchFixtureNicheOdds(f.fixtureId);
+      const { odds, aged, eventId, remaining } = await fetchFixtureNicheOdds(f.fixtureId);
       const at = new Date().toISOString();
       const candidates = listPropCandidates(f, odds, markets, at);
       const statCands = listStatCandidates(f, odds, dicts.stat, at);
+      // The same lines at prices we have not seen confirmed lately — only ever shown with a warning.
+      const agedQuotes = new Map<string, OddsQuote[]>();
+      for (const c of [...listPropCandidates(f, aged, markets, at), ...listStatCandidates(f, aged, dicts.stat, at)]) agedQuotes.set(c.id, c.quotes);
+      const withAged = (o: ValueOpportunity) => {
+        const extra = (agedQuotes.get(o.id) ?? []).filter((q) => !o.quotes.some((x) => x.bookmakerId === q.bookmakerId));
+        if (extra.length) o.unconfirmed = extra;
+        return o;
+      };
       // Who the referee is (and, near kick-off, who starts) — needs the Sofascore id.
       const matchCtx = eventId && (candidates.length || statCands.length) ? await getMatchContext(eventId, f.startsAt) : null;
 
@@ -217,7 +225,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
               prop.proofLevel = "moderate";
               prop.confidence = "low";
             }
-            opps.push(prop);
+            opps.push(withAged(prop));
           }
         }
         opps.sort((x, y) => y.edgePercent - x.edgePercent);
@@ -234,7 +242,7 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
           if (!ctx || !isProven(ctx, c.bestOdds)) continue;
           // Cards: the referee has to agree with the line.
           const ref = checkReferee(c.spec, matchCtx?.referee);
-          if (ref.agrees) statOpps.push(proveStat(c, ctx, ref.used));
+          if (ref.agrees) statOpps.push(withAged(proveStat(c, ctx, ref.used)));
         }
         statOpps.sort((x, y) => y.edgePercent - x.edgePercent);
         statOpps.splice(10);
