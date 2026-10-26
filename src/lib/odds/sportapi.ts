@@ -221,6 +221,58 @@ export async function matchCorners(eventId: number): Promise<number | null> {
   return null;
 }
 
+export interface RefereeInfo {
+  name: string;
+  /** Yellow + red cards per match over his career. */
+  perGame: number;
+  games: number;
+}
+
+/** The match official, when Sofascore has named one (usually the day before). */
+export async function eventReferee(eventId: number): Promise<RefereeInfo | null> {
+  const d = await call<{
+    event?: { referee?: { name?: string; yellowCards?: number; redCards?: number; games?: number } };
+  }>(`/api/v1/event/${eventId}`);
+  const r = d.event?.referee;
+  if (!r?.name || !r.games) return null;
+  return {
+    name: r.name,
+    perGame: Number((((r.yellowCards ?? 0) + (r.redCards ?? 0)) / r.games).toFixed(2)),
+    games: r.games,
+  };
+}
+
+export interface LineupInfo {
+  /** The official line-up is out; otherwise it is the predicted one. */
+  confirmed: boolean;
+  starters: number[];
+  /** Ruled out (injured or suspended) — "doubtful" players are not listed here. */
+  missing: number[];
+}
+
+interface RawLineupSide {
+  players?: { player: { id: number }; substitute?: boolean }[];
+  missingPlayers?: { player?: { id: number }; type?: string }[];
+}
+
+/** Starting elevens (predicted until the official ones are published) and who is out. */
+export async function eventLineup(eventId: number): Promise<LineupInfo | null> {
+  let d: { confirmed?: boolean; home?: RawLineupSide; away?: RawLineupSide };
+  try {
+    d = await call(`/api/v1/event/${eventId}/lineups`);
+  } catch (err) {
+    if (err instanceof SportApiError && !err.blocked && err.message.includes("404")) return null;
+    throw err;
+  }
+  const sides = [d.home, d.away];
+  const starters = sides.flatMap((s) => (s?.players ?? []).filter((p) => !p.substitute).map((p) => p.player.id));
+  const missing = sides.flatMap((s) =>
+    (s?.missingPlayers ?? []).filter((m) => m.player?.id && m.type !== "doubtful").map((m) => m.player!.id),
+  );
+  if (!starters.length && !missing.length) return null;
+  return { confirmed: Boolean(d.confirmed), starters, missing };
+}
+
 /** Cards and corners by period, each as [home, away]. */
 export type StatPeriod = "ft" | "1h" | "2h";
 export interface MatchStats {

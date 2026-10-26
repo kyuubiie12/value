@@ -1,6 +1,7 @@
 import type { ValueOpportunity } from "@/types";
 import { formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SignalChips } from "./signal-chips";
 
 /**
  * Two edge read-outs shown side by side:
@@ -24,6 +25,7 @@ export function FairPills({
     return (
       <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
         <Pill label={o.fairBasis === "history" ? (o.statSpec ? "Vs. holdenes kampe" : "Vs. hans kampe") : "Vs. andre"} value={sharpEdge} tone="book" size={size} />
+        <SignalChips opportunity={o} size={size} />
       </div>
     );
   }
@@ -32,6 +34,7 @@ export function FairPills({
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       <Pill label="B-fair" value={bookEdge} tone="book" size={size} />
       <Pill label="S-fair" value={sharpEdge} tone="sharp" size={size} />
+      <SignalChips opportunity={o} size={size} />
     </div>
   );
 }

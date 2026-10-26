@@ -7,6 +7,7 @@ import type {
   ValueOpportunity,
 } from "@/types";
 import { expectedValue, kellyStake, removeVigPower as removeVig } from "@/lib/betting-math";
+import { getBookmaker } from "@/lib/mock-data";
 import { LEAGUE_MAP } from "@/lib/mock-data/leagues";
 import { BET, LONGSHOT_FROM, MAX_LONGSHOT_EV, MAX_MAIN_ODDS, MAX_PLAUSIBLE_EV, MIN_EV, PLAYABLE_BOOKS, SHARP_BOOK } from "./config";
 
@@ -233,6 +234,8 @@ function confidenceFor(edge: number, books: number, movement: PriceMovement): Co
   return "low";
 }
 
+const bumped = (c: Confidence): Confidence => (c === "low" ? "medium" : "high");
+
 /** "WWDLT"-style form, most recent LAST (that's what the form guide expects). */
 function formString(matches: TeamFormMatch[] | undefined): string {
   if (!matches?.length) return "";
@@ -255,10 +258,17 @@ function movementOf(now: number, open: number): PriceMovement {
  * de-vigged Pinnacle price; every other book that prices the same outcome is a
  * candidate. Pure — no I/O — so it can be checked against saved responses.
  */
+/** Pinnacle's fair price must have shortened by this much (relative) to count as a sharp move. */
+const SHARP_MOVE_MIN = 0.04;
+
 export function detectValue(rec: FixtureRecord): ValueOpportunity[] {
   const league = LEAGUE_MAP[rec.leagueId];
   const at = rec.oddsUpdatedAt ?? rec.fetchedAt;
   const out: ValueOpportunity[] = [];
+  // What Pinnacle thought when we first saw the match — to spot "Pinnacle moved, the book hasn't".
+  const openFair = rec.openOdds
+    ? new Map(buildGroups({ ...rec, odds: rec.openOdds }).map((g) => [g.marketKey, g.fair]))
+    : null;
 
   for (const g of buildGroups(rec)) {
     if (!g.fair) continue;
@@ -278,10 +288,22 @@ export function detectValue(rec: FixtureRecord): ValueOpportunity[] {
       const movement = movementOf(best.price, openBest);
       const fairOdds = 1 / fairP;
 
+      // Pinnacle has moved towards this outcome and the bookmaker has not followed: the classic stale price.
+      const openP = openFair?.get(g.marketKey)?.[i];
+      const sharpMove =
+        openP && openBest && fairP / openP - 1 >= SHARP_MOVE_MIN && best.price >= openBest * 0.99
+          ? { fromOdds: Number((1 / openP).toFixed(3)), toOdds: Number(fairOdds.toFixed(3)) }
+          : null;
+
       const signals = [
         `Fair odds ${dk(fairOdds)} (Pinnacle uden margin) — bedste pris ${dk(best.price)} er ${(ev * 100).toFixed(1).replace(".", ",")}% over`,
         `${quotes.length} ${quotes.length === 1 ? "bookmaker" : "bookmakere"} prissætter spillet, gennemsnit ${dk(avg)}`,
       ];
+      if (sharpMove) {
+        signals.push(
+          `Pinnacle har rykket sig: fair odds ${dk(sharpMove.fromOdds)} → ${dk(sharpMove.toOdds)} siden vi første gang så kampen — men ${getBookmaker(best.bookmakerId)?.name ?? best.bookmakerId} står stadig på ${dk(best.price)}`,
+        );
+      }
       if (openBest && movement !== "stable") {
         signals.push(
           `Bedste pris er ${movement === "shortening" ? "faldet" : "steget"} fra ${dk(openBest)} til ${dk(best.price)} siden vi første gang så kampen`,
@@ -312,7 +334,8 @@ export function detectValue(rec: FixtureRecord): ValueOpportunity[] {
         expectedValue: Number(ev.toFixed(4)),
         edgePercent: Number((ev * 100).toFixed(2)),
         kellyFraction: Number(kellyStake(best.price, fairP, 1).toFixed(4)),
-        confidence: confidenceFor(ev, quotes.length, movement),
+        confidence: sharpMove ? bumped(confidenceFor(ev, quotes.length, movement)) : confidenceFor(ev, quotes.length, movement),
+        ...(sharpMove ? { sharpMove } : {}),
         signals,
         quotes,
         booksCount: quotes.length,

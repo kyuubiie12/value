@@ -19,6 +19,11 @@ import type { BookOdds, FixtureRecord } from "./detect";
 
 /** Re-price a fixture once its odds are this old. */
 const STALE_MS = 8 * 3_600_000;
+/** Close to kick-off prices move and value comes and goes — read them more often, far-off ones less. */
+function staleFor(startsAt: string, now: number): number {
+  const hours = (new Date(startsAt).getTime() - now) / 3_600_000;
+  return hours < 6 ? STALE_MS / 2.67 : hours < 24 ? STALE_MS : STALE_MS * 2;
+}
 /** At most this many matches are followed at once (best leagues, soonest first). */
 const UNIVERSE = Number(process.env.ODDS_UNIVERSE) || 45;
 /** Odds calls per run — keeps a run inside the function time limit. */
@@ -193,10 +198,10 @@ async function pickDue(now: number): Promise<FixtureRow[]> {
     .all()).filter((f) => new Date(f.startsAt).getTime() <= now + horizonMs(f.leagueId));
   // Soonest kick-off first — every league counts the same.
   upcoming.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const cutoff = new Date(now - STALE_MS).toISOString();
+
   const due = upcoming
     .slice(0, UNIVERSE)
-    .filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff);
+    .filter((f) => f.fetchedAt === null || f.fetchedAt < new Date(now - staleFor(f.startsAt, now)).toISOString());
   // Unpriced first, then soonest — a tight budget buys the most useful matches.
   due.sort(
     (a, b) =>

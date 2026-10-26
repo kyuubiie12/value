@@ -212,8 +212,41 @@ export function statSubject(spec: StatSpec, fx: NicheFixture): { subject: string
       };
 }
 
+/** Share of a match's cards that fall in each half (the second half is the bookier one). */
+const HALF_SHARE: Record<StatPeriod, number> = { ft: 1, "1h": 0.42, "2h": 0.58 };
+/** A referee with fewer matches than this tells us nothing. */
+const MIN_REF_GAMES = 20;
+
+export interface RefereeCheck {
+  /** False when the referee's own record points the other way — the line is then not shown. */
+  agrees: boolean;
+  /** The record to show next to the line, when it was used. */
+  used?: { name: string; perGame: number; games: number };
+}
+
+/**
+ * Whole-match cards lines are only shown when the referee's record agrees: over a line
+ * only if he usually gives at least that many, under only if he gives at most that many.
+ * Anything else (team lines, corners, no named referee, too few matches) is left alone.
+ */
+export function checkReferee(
+  spec: StatSpec,
+  referee: { name: string; perGame: number; games: number } | null | undefined,
+): RefereeCheck {
+  if (!referee || spec.category !== "cards" || spec.scope !== "match" || referee.games < MIN_REF_GAMES) {
+    return { agrees: true };
+  }
+  const expected = referee.perGame * HALF_SHARE[spec.period];
+  const agrees = spec.side === "over" ? expected >= spec.line : expected <= spec.line;
+  return { agrees, used: agrees ? referee : undefined };
+}
+
 /** A line whose record has been checked and found to clear the price. */
-export function proveStat(c: StatCandidate, stats: PlayerStatContext): ValueOpportunity {
+export function proveStat(
+  c: StatCandidate,
+  stats: PlayerStatContext,
+  referee?: { name: string; perGame: number; games: number },
+): ValueOpportunity {
   const fx = c.fixture;
   const league = LEAGUE_MAP[fx.leagueId];
   const spec = c.spec;
@@ -256,6 +289,7 @@ export function proveStat(c: StatCandidate, stats: PlayerStatContext): ValueOppo
     ],
     playerStats: stats,
     statSpec: spec,
+    ...(referee ? { referee } : {}),
     quotes: c.quotes,
     booksCount: c.quotes.length,
     detectedAt: c.at,

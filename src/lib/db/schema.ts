@@ -183,6 +183,8 @@ export const nicheFixtures = sqliteTable("niche_fixtures", {
   /** OddsPapi participant ids = the team ids SportAPI uses. */
   homeId: integer("home_id"),
   awayId: integer("away_id"),
+  /** Sofascore / SportAPI event id, for line-ups and the referee. */
+  eventId: integer("event_id"),
   oppsJson: text("opps_json"),
   fetchedAt: text("fetched_at"),
 });

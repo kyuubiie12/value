@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { needsRefresh, refreshOdds } from "@/lib/odds/store";
 import { oddsPapiConfigured } from "@/lib/odds/oddspapi";
 import { needsNicheRefresh, refreshNiche } from "@/lib/odds/niche-store";
+import { refreshMatchContexts } from "@/lib/odds/match-context";
 import { needsTrackingJob, runTrackingJob } from "@/lib/track/job";
 
 export const maxDuration = 300;
@@ -21,6 +22,7 @@ export async function GET() {
   ]);
   if (odds) after(() => refreshOdds());
   if (niche) after(() => refreshNiche());
+  after(() => refreshMatchContexts());
   if (track) after(() => runTrackingJob());
   return Response.json({ ok: true });
 }

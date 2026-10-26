@@ -16,7 +16,8 @@ import {
   TOURNAMENT_LEAGUES,
 } from "./oddspapi";
 import { displayName, listPropCandidates, proveNiche, type NicheMarkets } from "./niche";
-import { countsFor, listStatCandidates, proveStat, statContext, statSubject } from "./stat-markets";
+import { checkReferee, countsFor, listStatCandidates, proveStat, statContext, statSubject } from "./stat-markets";
+import { getMatchContext, loadContexts } from "./match-context";
 import { fixtureStatSamples } from "./team-stat-history";
 
 /**
@@ -30,6 +31,11 @@ import { fixtureStatSamples } from "./team-stat-history";
 const num = (v: string | undefined, d: number) => (v && Number(v) > 0 ? Number(v) : d);
 const UNIVERSE = () => num(process.env.ODDSPAPI_UNIVERSE, 8);
 const STALE_MS = () => num(process.env.ODDSPAPI_STALE_HOURS, 12) * 3_600_000;
+/** Close to kick-off prices move (and value comes and goes) — read them more often, far-off ones less. */
+function staleFor(startsAt: string, now: number): number {
+  const hours = (new Date(startsAt).getTime() - now) / 3_600_000;
+  return hours < 6 ? STALE_MS() / 3 : hours < 24 ? STALE_MS() : STALE_MS() * 2;
+}
 const RESERVE = () => num(process.env.ODDSPAPI_RESERVE, 15);
 const LIST_EVERY_MS = 72 * 3_600_000;
 const LOCK_MS = 4 * 60_000;
@@ -62,10 +68,9 @@ async function pickDue(now: number): Promise<Row[]> {
     .all()).filter((f) => new Date(f.startsAt).getTime() <= now + horizonMs(f.leagueId));
   // Soonest kick-off first — every league counts the same.
   upcoming.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const cutoff = new Date(now - STALE_MS()).toISOString();
   return upcoming
     .slice(0, UNIVERSE())
-    .filter((f) => f.fetchedAt === null || f.fetchedAt < cutoff)
+    .filter((f) => f.fetchedAt === null || f.fetchedAt < new Date(now - staleFor(f.startsAt, now)).toISOString())
     .sort(
       (a, b) =>
         Number(a.fetchedAt !== null) - Number(b.fetchedAt !== null) ||
@@ -172,9 +177,12 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
 
     for (const f of (await pickDue(now)).slice(0, MAX_PER_RUN)) {
       if (Date.now() - now > RUN_BUDGET_MS) break;
-      const { odds, remaining } = await fetchFixtureNicheOdds(f.fixtureId);
+      const { odds, eventId, remaining } = await fetchFixtureNicheOdds(f.fixtureId);
       const at = new Date().toISOString();
       const candidates = listPropCandidates(f, odds, markets, at);
+      const statCands = listStatCandidates(f, odds, dicts.stat, at);
+      // Who the referee is (and, near kick-off, who starts) — needs the Sofascore id.
+      const matchCtx = eventId && (candidates.length || statCands.length) ? await getMatchContext(eventId, f.startsAt) : null;
 
       // A prop is only shown when the player's own recent matches prove the price too big.
       // No record (no data access, too few matches) → nothing is shown for him.
@@ -191,13 +199,16 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
           const player = hit ? byId.get(hit.id) : undefined;
           if (!player) continue;
           const ctx = historyContext(c.category, c.outcomeLabel, player.appearances, name, history.season);
-          if (ctx && isProven(ctx, c.bestOdds)) opps.push(proveNiche(c, name, ctx));
+          if (ctx && isProven(ctx, c.bestOdds)) {
+            const prop = proveNiche(c, name, ctx);
+            if (prop.propSpec) prop.propSpec.playerId = player.id;
+            opps.push(prop);
+          }
         }
         opps.sort((x, y) => y.edgePercent - x.edgePercent);
         opps.splice(15);
       }
       // Cards and corners (match, halves, one team): proven by both teams' own recent matches.
-      const statCands = listStatCandidates(f, odds, dicts.stat, at);
       const samples = statCands.length ? await fixtureStatSamples(f.homeId, f.awayId) : null;
       const statOpps: ValueOpportunity[] = [];
       if (samples) {
@@ -205,7 +216,10 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         for (const c of statCands) {
           const { subject, metric } = statSubject(c.spec, f);
           const ctx = statContext(c.spec, countsFor(c.spec, samples), subject, metric, season);
-          if (ctx && isProven(ctx, c.bestOdds)) statOpps.push(proveStat(c, ctx));
+          if (!ctx || !isProven(ctx, c.bestOdds)) continue;
+          // Cards: the referee has to agree with the line.
+          const ref = checkReferee(c.spec, matchCtx?.referee);
+          if (ref.agrees) statOpps.push(proveStat(c, ctx, ref.used));
         }
         statOpps.sort((x, y) => y.edgePercent - x.edgePercent);
         statOpps.splice(10);
@@ -217,13 +231,13 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         // already proved for this match instead of wiping them, and look again in an hour.
         await db
           .update(nicheFixtures)
-          .set({ fetchedAt: new Date(Date.now() - STALE_MS() + 3_600_000).toISOString() })
+          .set({ fetchedAt: new Date(Date.now() - staleFor(f.startsAt, Date.now()) + 3_600_000).toISOString() })
           .where(eq(nicheFixtures.fixtureId, f.fixtureId));
         continue;
       }
       await db
         .update(nicheFixtures)
-        .set({ oppsJson: JSON.stringify(opps), fetchedAt: at })
+        .set({ oppsJson: JSON.stringify(opps), fetchedAt: at, ...(eventId ? { eventId } : {}) })
         .where(eq(nicheFixtures.fixtureId, f.fixtureId));
       priced++;
       await setMeta("niche_remaining", String(remaining ?? ""));
@@ -255,11 +269,22 @@ export async function loadNicheOpportunities(): Promise<ValueOpportunity[]> {
     .where(gt(nicheFixtures.startsAt, new Date(Date.now() - LIVE_WINDOW_MS).toISOString()))
     .all();
   const out: ValueOpportunity[] = [];
+  const contexts = await loadContexts();
   for (const r of rows) {
     if (!r.oppsJson) continue;
     try {
+      const lineup = r.eventId ? contexts.get(r.eventId)?.lineup : null;
       // Only props proven by the player's own matches — older price-gap ones are dropped.
-      out.push(...(JSON.parse(r.oppsJson) as ValueOpportunity[]).filter((o) => o.fairBasis === "history"));
+      for (const o of (JSON.parse(r.oppsJson) as ValueOpportunity[]).filter((x) => x.fairBasis === "history")) {
+        const id = o.propSpec?.playerId;
+        if (lineup && id) {
+          // Ruled out, or not in the (expected) starting eleven: a prop on him is not worth showing.
+          if (lineup.missing.includes(id)) continue;
+          if (lineup.starters.length >= 10 && !lineup.starters.includes(id)) continue;
+          if (lineup.starters.includes(id)) o.lineup = lineup.confirmed ? "confirmed" : "expected";
+        }
+        out.push(o);
+      }
     } catch {
       /* skip a corrupt row */
     }

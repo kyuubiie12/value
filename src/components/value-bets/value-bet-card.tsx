@@ -1,5 +1,6 @@
 "use client";
 
+import { SignalChips } from "@/components/shared/signal-chips";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Plus, Sparkles } from "lucide-react";
@@ -181,6 +182,8 @@ export function ValueBetCard({
           {formatPercent(o.expectedValue, { signed: true })}
         </span>
       </div>
+
+      <SignalChips opportunity={o} size="sm" className="-mt-1" />
 
       {/* Footer */}
       <div className="flex items-center justify-between gap-3 border-t border-line/70 pt-3">

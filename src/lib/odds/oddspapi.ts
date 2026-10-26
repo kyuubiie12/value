@@ -173,11 +173,19 @@ export function playablePrices(
 /** One fixture's prices from every book we compare (props and main markets in one call). */
 export async function fetchFixtureNicheOdds(fixtureId: string) {
   const slugs = [...new Set([...Object.keys(NICHE_BOOKS), ...Object.keys(ODDSPAPI_BOOKS)])];
-  const { data, remaining } = await call<{ odds?: RawNicheOdds; bookmakers?: Record<string, BookStatus> }>("/fixtures/odds", {
+  const { data, remaining } = await call<{
+    odds?: RawNicheOdds;
+    bookmakers?: Record<string, BookStatus>;
+    externalProviders?: { sofascoreId?: number | null };
+  }>("/fixtures/odds", {
     fixtureId,
     bookmakers: slugs.join(","),
   });
-  return { odds: playablePrices(data.odds ?? {}, data.bookmakers), remaining };
+  return {
+    odds: playablePrices(data.odds ?? {}, data.bookmakers),
+    eventId: data.externalProviders?.sofascoreId ?? null,
+    remaining,
+  };
 }
 
 /** Player id → "Last, First" for the ids we couldn't resolve from cache. */

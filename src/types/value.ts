@@ -102,8 +102,14 @@ export interface ValueOpportunity {
   teamForm?: { home: TeamFormMatch[]; away: TeamFormMatch[] };
   /** Cards / corners lines (match, half, team): what to look up after the match to grade the pick. */
   statSpec?: StatSpec;
+  /** Player props: is he in the starting eleven? "confirmed" = official line-up, "expected" = the predicted one. */
+  lineup?: "confirmed" | "expected";
+  /** Whole-match cards lines: the referee's own record, when it agrees with the line. */
+  referee?: { name: string; perGame: number; games: number };
+  /** Pinnacle has moved towards this outcome since we first saw the match, and the bookmaker has not followed. */
+  sharpMove?: { fromOdds: number; toOdds: number };
   /** Player props only: what to look up after the match to grade the pick. */
-  propSpec?: { player: string; stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards"; line: number };
+  propSpec?: { player: string; stat: "shots" | "shots-on-target" | "tackles" | "fouls" | "saves" | "cards"; line: number; /** SportAPI player id, for the line-up check. */ playerId?: number };
 
   /** Every price we saw for this selection. */
   quotes: OddsQuote[];

@@ -44,6 +44,11 @@ function explainHistory(o: ValueOpportunity, bookName: string): Explanation {
     ...(h.n > last5.length
       ? [`De seneste ${h.n} kampe: i snit ${dec(avg10)} pr. kamp, og han nåede ${st.line}+ i ${h.hits} af ${h.n} (${pct(h.hitRate, 0)}).`]
       : []),
+    ...(o.lineup === "confirmed"
+      ? ["Opstillingen er bekræftet: han er i startelleveren, så han får sandsynligvis en hel kamp."]
+      : o.lineup === "expected"
+        ? ["Han er med i den forventede startopstilling. Den er ikke officiel endnu, så tjek den, når den kommer."]
+        : []),
     `${bookName} giver ${formatOdds(o.bestOdds)} på ${st.line}+ — den pris kræver kun, at det sker i ${pct(breakEven, 0)} af kampene for at gå lige op.`,
     `Med kun ${h.n} kampe kan held spille ind, så vi regner pessimistisk: selv hvis han er heldig i de seneste kampe, lander han stadig mindst ${pct(st.modelProbability, 0)} af gangene. Det svarer til fair odds ${formatOdds(st.modelFairOdds)} — prisen er højere, og forskellen er dit forventede overskud: ${formatPercent(o.expectedValue, { signed: true })} af indsatsen på sigt.`,
   ];
@@ -141,6 +146,9 @@ function explainTeamStat(o: ValueOpportunity, bookName: string): Explanation {
   const points = [
     `De seneste ${last5.length} kampe${pooled}: ${list(last5)} ${st.metric} — i snit ${dec(avg5)}. ${line} ramte i ${hits5} af ${last5.length}.`,
     `I alt ${h.n} kampe${pooled}: i snit ${dec(mean(h.counts))} ${st.metric}, og ${line} ramte i ${h.hits} af ${h.n} (${pct(h.hitRate, 0)}).`,
+    ...(o.referee
+      ? [`Dommeren ${o.referee.name} giver i snit ${dec(o.referee.perGame)} kort pr. kamp (${o.referee.games} kampe) — det peger samme vej som holdenes tal.`]
+      : []),
     `${bookName} giver ${formatOdds(o.bestOdds)} på ${line} — den pris kræver kun, at det sker i ${pct(breakEven, 0)} af kampene for at gå lige op.`,
     `Med kun ${h.n} kampe kan held spille ind, så vi regner pessimistisk: selv med lidt uheld lander det stadig mindst ${pct(st.modelProbability, 0)} af gangene. Det svarer til fair odds ${formatOdds(st.modelFairOdds)} — prisen er højere, og forskellen er dit forventede overskud: ${formatPercent(o.expectedValue, { signed: true })} af indsatsen på sigt.`,
   ];
@@ -180,6 +188,12 @@ export function explainOpportunity(o: ValueOpportunity): Explanation {
     );
     points.push(
       `${bookName} giver ${formatOdds(o.bestOdds)}. Det er ${formatPercent(o.bestOdds / o.fairOdds - 1, { digits: 1 })} mere end fair odds, og ${o.booksCount} ${o.booksCount === 1 ? "bookmaker" : "bookmakere"} prissætter spillet.`,
+    );
+  }
+
+  if (o.sharpMove) {
+    points.push(
+      `Pinnacle, den skarpeste bookmaker, har rykket sin pris siden vi første gang så kampen: fair odds er gået fra ${formatOdds(o.sharpMove.fromOdds)} til ${formatOdds(o.sharpMove.toOdds)}. ${bookName} står stadig på ${formatOdds(o.bestOdds)} — den har ikke fulgt med endnu.`,
     );
   }
 
