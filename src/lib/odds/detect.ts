@@ -6,9 +6,9 @@ import type {
   TeamFormMatch,
   ValueOpportunity,
 } from "@/types";
-import { expectedValue, kellyStake, removeVig } from "@/lib/betting-math";
+import { expectedValue, kellyStake, removeVigPower as removeVig } from "@/lib/betting-math";
 import { LEAGUE_MAP } from "@/lib/mock-data/leagues";
-import { BET, MAX_MAIN_ODDS, MAX_PLAUSIBLE_EV, MIN_EV, PLAYABLE_BOOKS, SHARP_BOOK } from "./config";
+import { BET, LONGSHOT_FROM, MAX_LONGSHOT_EV, MAX_MAIN_ODDS, MAX_PLAUSIBLE_EV, MIN_EV, PLAYABLE_BOOKS, SHARP_BOOK } from "./config";
 
 /** book id → API bet id → outcome label ("Home", "Over 2.5") → decimal odds. */
 export type BookOdds = Record<string, Record<string, Record<string, number>>>;
@@ -270,7 +270,8 @@ export function detectValue(rec: FixtureRecord): ValueOpportunity[] {
 
       const best = quotes.reduce((a, q) => (q.price > a.price ? q : a));
       const ev = expectedValue(best.price, fairP);
-      if (ev < MIN_EV || ev > MAX_PLAUSIBLE_EV || best.price > MAX_MAIN_ODDS) return;
+      const evCap = best.price >= LONGSHOT_FROM ? MAX_LONGSHOT_EV : MAX_PLAUSIBLE_EV;
+      if (ev < MIN_EV || ev > evCap || best.price > MAX_MAIN_ODDS) return;
 
       const avg = quotes.reduce((s, q) => s + q.price, 0) / quotes.length;
       const openBest = rec.openOdds ? bestPrice(quotesFor(rec.openOdds, o, at)) : 0;

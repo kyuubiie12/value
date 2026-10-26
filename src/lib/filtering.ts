@@ -6,6 +6,17 @@ import type {
 } from "@/types";
 import { valueScore } from "./value-score";
 
+/** Without a chosen odds range the feed stops here; asking for odds from HIGH_ODDS_FROM up lifts the ceiling. */
+export const DEFAULT_ODDS_CEILING = 5.5;
+export const HIGH_ODDS_FROM = 5;
+
+/** Does a best price fit the user's odds preference (0 = no limit on that side)? */
+export function oddsAllowed(odds: number, min = 0, max = 0): boolean {
+  if (min && odds < min) return false;
+  if (max) return odds <= max;
+  return min >= HIGH_ODDS_FROM || odds <= DEFAULT_ODDS_CEILING;
+}
+
 /** Pure, shared filtering + sorting for value opportunities. */
 export function filterOpportunities(
   items: ValueOpportunity[],
@@ -25,8 +36,7 @@ export function filterOpportunities(
     result = result.filter((o) => o.priceMovement === filters.movement);
   if (typeof filters.minEdge === "number")
     result = result.filter((o) => o.expectedValue >= filters.minEdge!);
-  if (filters.minOdds) result = result.filter((o) => o.bestOdds >= filters.minOdds!);
-  if (filters.maxOdds) result = result.filter((o) => o.bestOdds <= filters.maxOdds!);
+  result = result.filter((o) => oddsAllowed(o.bestOdds, filters.minOdds, filters.maxOdds));
   if (typeof filters.withinHours === "number") {
     const cutoff = Date.now() + filters.withinHours * 3_600_000;
     result = result.filter((o) => new Date(o.startsAt).getTime() <= cutoff);

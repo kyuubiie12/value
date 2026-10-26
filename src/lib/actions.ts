@@ -18,6 +18,7 @@ import { DEFAULT_SETTINGS } from "@/lib/mock-data";
 import { APPEARANCE_DEFAULTS, sanitizeAppearance } from "@/lib/appearance";
 import { suggestedStake } from "@/lib/betting-math";
 import { restrictOpportunityToBooks } from "@/lib/restrict-opportunity";
+import { oddsAllowed } from "@/lib/filtering";
 import {
   bookmakerService,
   insightService,
@@ -140,6 +141,7 @@ export async function syncAutoFollowAction(): Promise<{
     .filter(
       (o) =>
         o.expectedValue >= settings.autoFollowMinEdge &&
+        oddsAllowed(o.bestOdds, settings.minOdds, settings.maxOdds) &&
         !skip.has(o.id) &&
         new Date(o.startsAt).getTime() > now,
     )

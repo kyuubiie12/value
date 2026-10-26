@@ -17,6 +17,8 @@ const PRESETS: { label: string; range: OddsRange }[] = [
   { label: "1,8–2,2", range: { min: 1.8, max: 2.2 } },
   { label: "2,0–3,0", range: { min: 2, max: 3 } },
   { label: "3,0+", range: { min: 3, max: 0 } },
+  { label: "5+", range: { min: 5, max: 0 } },
+  { label: "10+", range: { min: 10, max: 0 } },
 ];
 
 const same = (a: OddsRange, b: OddsRange) => a.min === b.min && a.max === b.max;

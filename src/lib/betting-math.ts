@@ -24,6 +24,28 @@ export function removeVig(decimalOdds: number[]): number[] {
   return implied.map((p) => p / overround);
 }
 
+/**
+ * De-vig with the power method: find k so that the implied probabilities raised to k
+ * sum to 1. Unlike the proportional method it does not hand long shots a share of the
+ * bookmaker's margin they never carried, so fair prices on 8.0+ odds are not too short
+ * (the favourite–longshot bias). Near-identical to `removeVig` on balanced markets.
+ */
+export function removeVigPower(decimalOdds: number[]): number[] {
+  const implied = decimalOdds.map(impliedProbability);
+  const sum = implied.reduce((a, b) => a + b, 0);
+  if (!(sum > 1) || implied.some((p) => !(p > 0 && p < 1))) return removeVig(decimalOdds);
+  let lo = 1;
+  let hi = 25;
+  for (let i = 0; i < 60; i++) {
+    const k = (lo + hi) / 2;
+    const s = implied.reduce((a, p) => a + p ** k, 0);
+    if (s > 1) lo = k;
+    else hi = k;
+  }
+  const k = (lo + hi) / 2;
+  return implied.map((p) => p ** k);
+}
+
 /** Fair decimal odds for one outcome given the full field of prices. */
 export function fairOdds(decimalOdds: number[], outcomeIndex: number): number {
   const fair = removeVig(decimalOdds)[outcomeIndex];

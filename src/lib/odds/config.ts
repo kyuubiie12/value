@@ -116,9 +116,14 @@ export const MAX_PLAUSIBLE_EV = 0.25;
 
 /**
  * Long shots are where a proportional de-vig is least reliable (the favourite–
- * longshot bias), so prices above this aren't offered as main-market value.
+ * longshot bias), so fair prices use the power method (see `removeVigPower`) and
+ * the feed hides odds above ~5.5 unless the user asks for high odds. This is the
+ * ceiling on what is detected at all.
  */
-export const MAX_MAIN_ODDS = 4.5;
+export const MAX_MAIN_ODDS = Number(process.env.MAX_MAIN_ODDS) || 15;
+/** From this price on, a main-market edge must stay under MAX_LONGSHOT_EV to be believed. */
+export const LONGSHOT_FROM = 4.5;
+export const MAX_LONGSHOT_EV = 0.4;
 
 /** Below this the "edge" is rounding noise, not something worth a stake. */
 export const MIN_EV = 0.005;

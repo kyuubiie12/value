@@ -17,6 +17,7 @@ import { closingLineValue } from "@/lib/betting-math";
 import { formatCurrency, formatOdds, formatPercent } from "@/lib/format";
 import { notificationKindEnabled } from "@/lib/notification-prefs";
 import { restrictOpportunityToBooks } from "@/lib/restrict-opportunity";
+import { oddsAllowed } from "@/lib/filtering";
 import { sendPushToUser } from "@/lib/push/send";
 
 /**
@@ -142,8 +143,7 @@ async function valueAlerts(user: UserRow, opps: ValueOpportunity[]): Promise<boo
     .filter(
       (o) =>
         o.expectedValue >= Math.max(s.minEdge, s.alertMinEdge) &&
-        (!s.minOdds || o.bestOdds >= s.minOdds) &&
-        (!s.maxOdds || o.bestOdds <= s.maxOdds),
+        oddsAllowed(o.bestOdds, s.minOdds, s.maxOdds),
     );
 
   const seenRows = await db.select().from(notifySeen).where(eq(notifySeen.userId, user.id)).all();
