@@ -22,6 +22,8 @@ export const MIN_MATCHES = 8;
 export const HISTORY_MATCHES = 10;
 /** One-sided confidence for the pessimistic estimate (z = 0.84 ≈ 80%). */
 const Z = 0.84;
+/** The milder reading used for tackles and fouls (z = 0.25 ≈ 60%): good numbers, less proof. */
+export const MODERATE_Z = 0.25;
 /** The pessimistic edge a prop must clear to be shown at all. */
 export const MIN_PROVEN_EV = 0.03;
 /**
@@ -54,6 +56,7 @@ export function historyContext(
   appearances: Appearance[],
   displayName: string,
   season: number,
+  z = Z,
 ): PlayerStatContext | null {
   const line = lineFromLabel(label);
   // Only matches he actually played in (a bench-warmer's zeros would flatter nothing).
@@ -64,7 +67,7 @@ export function historyContext(
   const hits = counts.filter((c) => c >= line).length;
   const n = counts.length;
   const mean = counts.reduce((s, c) => s + c, 0) / n;
-  const lower = wilsonLower(hits, n);
+  const lower = wilsonLower(hits, n, z);
   const poisson = poissonAtLeast(mean, line);
   const total = counts.reduce((s, c) => s + c, 0);
 

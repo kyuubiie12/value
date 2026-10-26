@@ -23,6 +23,9 @@ export function SignalChips({
   else if (o.lineup === "expected")
     chips.push({ key: "lineup", label: "Forventet starter", title: "Han er med i den forventede startopstilling — den er ikke officiel endnu", icon: <CheckCircle2 className={icon} strokeWidth={2.5} />, tone: "info" });
 
+  if (o.proofLevel === "moderate")
+    chips.push({ key: "mild", label: "Moderat bevis", title: "Tackling/foul-spil på et mildere bevis: chancen er regnet med mindre forsigtighed end de andre props", icon: <Gavel className={icon} strokeWidth={2.5} />, tone: "warn" });
+
   if (o.sharpMove)
     chips.push({ key: "sharp", label: "Skarpt træk", title: "Pinnacle har rykket sin pris, og bookmakeren har ikke fulgt med endnu", icon: <Zap className={icon} strokeWidth={2.5} />, tone: "warn" });
 

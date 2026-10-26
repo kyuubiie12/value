@@ -50,7 +50,7 @@ function explainHistory(o: ValueOpportunity, bookName: string): Explanation {
         ? ["Han er med i den forventede startopstilling. Den er ikke officiel endnu, så tjek den, når den kommer."]
         : []),
     `${bookName} giver ${formatOdds(o.bestOdds)} på ${st.line}+ — den pris kræver kun, at det sker i ${pct(breakEven, 0)} af kampene for at gå lige op.`,
-    `Med kun ${h.n} kampe kan held spille ind, så vi regner pessimistisk: selv hvis han er heldig i de seneste kampe, lander han stadig mindst ${pct(st.modelProbability, 0)} af gangene. Det svarer til fair odds ${formatOdds(st.modelFairOdds)} — prisen er højere, og forskellen er dit forventede overskud: ${formatPercent(o.expectedValue, { signed: true })} af indsatsen på sigt.`,
+    `Med kun ${h.n} kampe kan held spille ind, så vi regner ${o.proofLevel === "moderate" ? "med lidt forsigtighed (et mildere bevis end ved skud, fordi tackling og fouls er stabile tal)" : "pessimistisk"}: selv hvis han er heldig i de seneste kampe, lander han stadig mindst ${pct(st.modelProbability, 0)} af gangene. Det svarer til fair odds ${formatOdds(st.modelFairOdds)} — prisen er højere, og forskellen er dit forventede overskud: ${formatPercent(o.expectedValue, { signed: true })} af indsatsen på sigt.`,
   ];
 
   return {

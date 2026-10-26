@@ -102,6 +102,8 @@ export interface ValueOpportunity {
   teamForm?: { home: TeamFormMatch[]; away: TeamFormMatch[] };
   /** Cards / corners lines (match, half, team): what to look up after the match to grade the pick. */
   statSpec?: StatSpec;
+  /** Tackles / fouls: shown on a milder proof than the other props (60 % instead of 80 % confidence). */
+  proofLevel?: "moderate";
   /** Player props: is he in the starting eleven? "confirmed" = official line-up, "expected" = the predicted one. */
   lineup?: "confirmed" | "expected";
   /** Whole-match cards lines: the referee's own record, when it agrees with the line. */

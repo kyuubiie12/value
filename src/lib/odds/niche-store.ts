@@ -7,7 +7,7 @@ import { horizonMs, LIVE_WINDOW_MS, MAX_HORIZON_MS } from "./config";
 import { loadMarketDicts } from "./market-dicts";
 import { findPlayer } from "./player-model";
 import { fixtureHistory } from "./player-history";
-import { historyContext, isProven, rosterFromHistory } from "./history-model";
+import { historyContext, isProven, MODERATE_Z, rosterFromHistory } from "./history-model";
 import {
   fetchFixtureNicheOdds,
   fetchPlayerNames,
@@ -198,10 +198,25 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
           const hit = findPlayer(roster, name);
           const player = hit ? byId.get(hit.id) : undefined;
           if (!player) continue;
-          const ctx = historyContext(c.category, c.outcomeLabel, player.appearances, name, history.season);
-          if (ctx && isProven(ctx, c.bestOdds)) {
+          let ctx = historyContext(c.category, c.outcomeLabel, player.appearances, name, history.season);
+          let moderate = false;
+          // Tackles and fouls are steady, countable stats: a milder reading of the same record also counts.
+          if ((!ctx || !isProven(ctx, c.bestOdds)) && (c.category === "tackles" || c.category === "fouls")) {
+            const mild = historyContext(c.category, c.outcomeLabel, player.appearances, name, history.season, MODERATE_Z);
+            if (mild && isProven(mild, c.bestOdds)) {
+              ctx = mild;
+              moderate = true;
+            }
+          }
+          if (ctx && (moderate || isProven(ctx, c.bestOdds))) {
             const prop = proveNiche(c, name, ctx);
+            // A milder proof must not promise a huge edge: those are the ones a few lucky games produce.
+            if (moderate && prop.expectedValue > 0.3) continue;
             if (prop.propSpec) prop.propSpec.playerId = player.id;
+            if (moderate) {
+              prop.proofLevel = "moderate";
+              prop.confidence = "low";
+            }
             opps.push(prop);
           }
         }
