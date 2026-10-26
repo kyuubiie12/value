@@ -114,7 +114,7 @@ export function NotificationsMenu({
             // against the viewport instead — a full-width sheet under the
             // header. From `sm` up there's enough room for the original
             // anchored popover.
-            "fixed inset-x-4 top-[60px]",
+            "fixed inset-x-4 top-[68px]",
             "sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[340px]",
           )}
         >

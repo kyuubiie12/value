@@ -57,13 +57,13 @@ export function TopNav({
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-      <div className="mx-auto flex h-[60px] max-w-[1180px] items-center gap-3 px-4 sm:px-6 lg:px-10">
+      <div className="mx-auto flex h-[68px] max-w-[1180px] items-center gap-3 px-4 sm:px-6 lg:px-10">
         <Brand />
 
         <span className="mx-1.5 hidden h-6 w-px bg-line lg:block" />
 
-        <nav className="hidden items-center gap-1 lg:flex">
-          {NAV_ITEMS.map((item) => {
+        <nav className="hidden items-center gap-1.5 lg:flex">
+          {[...NAV_ITEMS, ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : [])].map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;
             return (
@@ -72,47 +72,26 @@ export function TopNav({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors duration-150",
-                  "outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                  "group flex items-center gap-2.5 whitespace-nowrap rounded-full px-[18px] py-2.5 text-[15px] font-semibold tracking-[-0.01em]",
+                  "transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.97]",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   active
-                    ? "bg-primary/12 text-primary-strong ring-1 ring-inset ring-primary/20"
+                    ? "bg-primary text-primary-contrast shadow-[0_10px_28px_-12px_color-mix(in_oklab,var(--color-primary)_75%,transparent)]"
                     : "text-muted hover:bg-surface-2 hover:text-fg",
                 )}
               >
                 <Icon
                   className={cn(
-                    "size-4 transition-colors",
-                    active
-                      ? "text-primary-strong"
-                      : "text-subtle group-hover:text-fg",
+                    "size-[19px] transition-transform duration-200",
+                    active ? "text-primary-contrast" : "text-subtle group-hover:-translate-y-px group-hover:text-fg",
                   )}
-                  strokeWidth={2}
+                  strokeWidth={2.2}
                   aria-hidden
                 />
                 {item.label}
               </Link>
             );
           })}
-          {isAdmin && (
-            <Link
-              href="/admin"
-              aria-current={isActive("/admin") ? "page" : undefined}
-              className={cn(
-                "group flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors duration-150",
-                "outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                isActive("/admin")
-                  ? "bg-primary/12 text-primary-strong ring-1 ring-inset ring-primary/20"
-                  : "text-muted hover:bg-surface-2 hover:text-fg",
-              )}
-            >
-              <ShieldCheck
-                className={cn("size-4", isActive("/admin") ? "text-primary-strong" : "text-subtle group-hover:text-fg")}
-                strokeWidth={2}
-                aria-hidden
-              />
-              Admin
-            </Link>
-          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
