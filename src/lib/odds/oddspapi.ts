@@ -1,6 +1,6 @@
 import "server-only";
 import { categoryOf, NICHE_BOOKS } from "./niche";
-import type { NicheMarkets, RawNicheOdds } from "./niche";
+import type { NicheMarkets, RawNicheOdds, RawNicheOutcome } from "./niche";
 import { isMainMarket, ODDSPAPI_BOOKS, type MainMarkets } from "./oddspapi-main";
 import { statMarketOf, type StatMarkets } from "./stat-markets";
 
@@ -141,14 +141,43 @@ export async function fetchMarketDictionaries() {
   return { niche, main, stat, remaining };
 }
 
+/**
+ * A price is only shown when it can still be played: the book hasn't pulled it, and it has
+ * been confirmed recently. A price that hasn't changed for days may be a line the bookmaker
+ * removed long ago, and showing it would be false information.
+ */
+const MAX_PRICE_AGE_MS = (Number(process.env.ODDS_MAX_AGE_HOURS) || 24) * 3_600_000;
+
+type BookStatus = { hasOdds?: boolean; staleOdds?: boolean; suspended?: boolean };
+
+export function playablePrices(
+  odds: RawNicheOdds,
+  books: Record<string, BookStatus> = {},
+  now = Date.now(),
+): RawNicheOdds {
+  const out: RawNicheOdds = {};
+  for (const [slug, outcomes] of Object.entries(odds)) {
+    const b = books[slug];
+    if (b && (b.hasOdds === false || b.staleOdds || b.suspended)) continue;
+    const kept: Record<string, RawNicheOutcome> = {};
+    for (const [key, o] of Object.entries(outcomes)) {
+      if (o.active === false || o.marketActive === false) continue;
+      if (typeof o.changedAt === "number" && now - o.changedAt > MAX_PRICE_AGE_MS) continue;
+      kept[key] = o;
+    }
+    if (Object.keys(kept).length) out[slug] = kept;
+  }
+  return out;
+}
+
 /** One fixture's prices from every book we compare (props and main markets in one call). */
 export async function fetchFixtureNicheOdds(fixtureId: string) {
   const slugs = [...new Set([...Object.keys(NICHE_BOOKS), ...Object.keys(ODDSPAPI_BOOKS)])];
-  const { data, remaining } = await call<{ odds?: RawNicheOdds }>("/fixtures/odds", {
+  const { data, remaining } = await call<{ odds?: RawNicheOdds; bookmakers?: Record<string, BookStatus> }>("/fixtures/odds", {
     fixtureId,
     bookmakers: slugs.join(","),
   });
-  return { odds: data.odds ?? {}, remaining };
+  return { odds: playablePrices(data.odds ?? {}, data.bookmakers), remaining };
 }
 
 /** Player id → "Last, First" for the ids we couldn't resolve from cache. */

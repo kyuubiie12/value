@@ -55,6 +55,8 @@ export interface RawMainOutcome {
   marketId: number;
   price: number;
   active?: boolean;
+  changedAt?: number;
+  marketActive?: boolean;
   playerId?: number;
 }
 export type RawMainOdds = Record<string, Record<string, RawMainOutcome>>;

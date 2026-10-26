@@ -256,6 +256,11 @@ export async function refreshOdds(): Promise<{ priced: number; skipped?: string 
 
   let priced = 0;
   try {
+    // One-time: prices may now only be ones the bookmaker confirmed in the last day — price it all again.
+    if ((await getMeta("odds_fresh_v")) !== "1") {
+      await db.update(oddsFixtures).set({ fetchedAt: "1970-01-01T00:00:00.000Z" });
+      await setMeta("odds_fresh_v", "1");
+    }
     // OddsPapi's own fixture list defines what we follow (and carries the team ids).
     await ensureNicheFixtures().catch((err) => console.error("[odds] OddsPapi list failed:", err));
     await syncFixtures(now);

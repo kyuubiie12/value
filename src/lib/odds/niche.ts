@@ -87,6 +87,9 @@ export interface RawNicheOutcome {
   playerId: number;
   price: number;
   active?: boolean;
+  /** When this price last changed at the bookmaker (ms). */
+  changedAt?: number;
+  marketActive?: boolean;
   marketId: number;
 }
 

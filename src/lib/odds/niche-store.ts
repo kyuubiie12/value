@@ -82,7 +82,7 @@ export async function needsNicheRefresh(): Promise<boolean> {
   const meta = await getAllMeta();
   let value: boolean;
   if (Number(meta.niche_blocked_until ?? 0) > now || Number(meta.niche_lock ?? 0) > now) value = false;
-  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2" || meta.niche_opps_v !== "2" || meta.niche_stat_v !== "1") value = true;
+  else if (now - Number(meta.niche_listed_at ?? 0) > LIST_EVERY_MS || meta.niche_ids_v !== "2" || meta.niche_opps_v !== "2" || meta.niche_fresh_v !== "1") value = true;
   else value = (await pickDue(now)).length > 0;
   needsCache = { at: now, value };
   return value;
@@ -159,9 +159,9 @@ export async function refreshNiche(): Promise<{ priced: number; skipped?: string
         .where(and(eq(trackPicks.status, "pending"), like(trackPicks.gradeJson, '%"type":"prop"%')));
       await setMeta("niche_opps_v", "2");
     }
-    if (meta.niche_stat_v !== "1") {
+    if (meta.niche_fresh_v !== "1") {
       await db.update(nicheFixtures).set({ fetchedAt: null });
-      await setMeta("niche_stat_v", "1");
+      await setMeta("niche_fresh_v", "1");
     }
     await db.delete(nicheFixtures).where(lt(nicheFixtures.startsAt, new Date(now - 2 * LIVE_WINDOW_MS).toISOString()));
 
