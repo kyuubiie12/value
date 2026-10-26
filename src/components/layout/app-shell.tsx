@@ -4,6 +4,7 @@ import { TopNav } from "./top-nav";
 import { ThemeSync } from "./theme-sync";
 import { CommandPalette } from "./command-palette";
 import { Spotlight } from "./spotlight";
+import { ScrollReveal } from "@/components/shared/scroll-reveal";
 import { LEGAL_LINKS } from "@/lib/site";
 
 export function AppShell({
@@ -33,6 +34,7 @@ export function AppShell({
         animations={settings.animations}
       />
       <Spotlight />
+      <ScrollReveal />
       <CommandPalette theme={settings.theme} />
       <TopNav
         stats={stats}

@@ -8,6 +8,7 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement> & { interactive?: boolean }) {
   return (
     <div
+      data-reveal
       className={cn(
         "spot rounded-card border border-line/60 bg-surface shadow-[var(--shadow-card)]",
         interactive &&
