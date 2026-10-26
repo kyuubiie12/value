@@ -85,7 +85,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         type="submit"
         disabled={pending}
         className={cn(
-          "mt-1.5 inline-flex h-11 items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-primary px-4",
+          "btn-shine btn-lift mt-1.5 inline-flex h-11 items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-primary px-4",
           "text-[13px] font-semibold text-primary-contrast",
           "transition-[background-color,transform] duration-150 active:translate-y-px",
           "hover:bg-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
